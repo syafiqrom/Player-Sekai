@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Player Sekai</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+<script type="importmap">
+    {
+        "imports": {
+            "@material/web/": "https://esm.run/@material/web/"
+        }
+    }
+</script>
+
+<script type="module">
+    import '@material/web/all.js';
+    import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+    document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+</script>
+
+<style>
+:root {
+    --md-sys-color-primary: #ebddfe;
+    --md-sys-color-on-primary: #4e368b;
+    --md-sys-color-background: #beabf5;
+    --md-sys-color-on-background: #4f3a7a;
+    --md-sys-color-surface: #e3e1f9;
+    --md-sys-color-on-surface: #4f3a7a;
+    --md-divider-color: #a08cd9;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    font-family: Roboto, sans-serif;
+    background: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-background);
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 250px;
+    padding-left: 20px;
+    padding-right: 20px;
+    border-right: 2px solid #a08cd9;
+}
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.header {
+    padding-left: 20px;
+}
+
+.card {
+    background: var(--md-sys-color-surface);
+    border-radius: 28px;
+    margin: 0 20px 20px 20px;
+    overflow: auto;
+    flex: 1;
+}
+
+md-list {
+    padding: 0;
+}
+
+md-list-item {
+    cursor: pointer;
+}
+
+md-list-item:hover, md-list-item:focus{
+    background: #d6cff5;
+}
+
+md-divider {
+    --md-divider-color: #a08cd9;
+}
+
+.player {
+    padding: 10px;
+    background: #4f3a7a;
+}
+
+audio {
+    width: 100%;
+}
+
+/* Scrollbar */
+.card::-webkit-scrollbar {
+    width: 10px;
+}
+
+.card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.card::-webkit-scrollbar-thumb {
+    background: #b9aaf0;
+    border-radius: 10px;
+}
+
+.card::-webkit-scrollbar-thumb:hover {
+    background: #9f8de0;
+}
+
+.card {
+    scrollbar-color: #b9aaf0 transparent;
+}
+
+#searchBar {
+    margin: 0 20px 20px 20px;
+    flex: 1;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h1 class="md-typescale-display-medium">Pocket</h1>
+    <div class="card">
+        <md-list>
+            <md-list-item href="index.html">Home</md-list-item>
+            <md-divider inset></md-divider>
+            <md-list-item href="group.html">Group</md-list-item>
+            <md-list-item href="selected.html?group=ln">Leo/need</md-list-item>
+            <md-list-item href="selected.html?group=mmj">MORE MORE JUMP</md-list-item>
+            <md-list-item href="selected.html?group=vbs">Vivid BAD SQUAD</md-list-item>
+            <md-list-item href="selected.html?group=wxs">Wonderlands x Showtime</md-list-item>
+            <md-list-item href="selected.html?group=n25">Nightcord</md-list-item>
+        </md-list>
+    </div>
+</div>
+
+<div class="main">
+    <div class="header">
+        <!-- <h1 class="md-typescale-display-medium">Song List</h1> -->
+        <md-outlined-text-field
+            id="searchBar"
+            placeholder="Search songs"
+            style="width: 300px; margin-top: 10px;">
+        </md-outlined-text-field>
+    </div>
+
+    <div class="card">
+        <md-list id="songList"></md-list>
+    </div>
+
+    <div class="player">
+        <audio id="player" controls></audio>
+    </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const group = params.get("group");
+
+const url = group ? `/api/songs?group=${group}` : "/api/songs";
+
+const res = await fetch(url);
+const songs = await res.json();
+let allSongs = [];
+
+async function loadSongs() {
+    const res = await fetch("/api/songs");
+    allSongs = await res.json();
+    renderSongs(allSongs);
+}
+
+function renderSongs(songs) {
+    const songList = document.getElementById("songList");
+    const player = document.getElementById("player");
+
+    songList.innerHTML = "";
+
+    songs.forEach((song, index) => {
+        const item = document.createElement("md-list-item");
+        item.textContent = song.replace(".mp3", "");
+
+        item.onclick = () => {
+        player.src = `/songs/${song}`;
+        player.play();
+        };
+
+        songList.appendChild(item);
+
+        if (index < songs.length - 1) {
+        const divider = document.createElement("md-divider");
+        divider.setAttribute("inset", "");
+        songList.appendChild(divider);
+        }
+    });
+}
+
+document.getElementById("searchBar").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+
+    const filtered = allSongs.filter(song =>
+        song.toLowerCase().includes(q)
+    );
+
+    renderSongs(filtered);
+});
+
+loadSongs();
+</script>
+
+</body>
+</html>
