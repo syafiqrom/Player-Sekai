@@ -89,7 +89,7 @@ md-divider {
 }
 
 audio {
-    width: 100%;
+    width: 50%;
 }
 
 /* Scrollbar */
@@ -154,7 +154,8 @@ audio {
         <md-list id="songList"></md-list>
     </div>
 
-    <div class="player">
+    <div class="player" style="display: flex; flex-direction: row; align-items: center; gap: 10px;">
+        <p style="color: #e3e1f9; width: 50%;" id="playTitle">Play a song!</p>
         <audio id="player" controls></audio>
     </div>
 </div>
@@ -176,11 +177,13 @@ function renderSongs(songs) {
 
   songs.forEach((song, index) => {
     const item = document.createElement("md-list-item");
-    item.textContent = song.replace(".mp3", "");
+    item.textContent = song.split("/").pop().replace(".mp3", "");
 
     item.onclick = () => {
-      player.src = `/songs/${song}`;
-      player.play();
+        player.src = `/songs/${song}`;
+        player.play();
+
+        document.getElementById("playTitle").textContent = item.textContent;
     };
 
     songList.appendChild(item);

@@ -128,11 +128,11 @@ md-card {
             <md-list-item href="index.html">Home</md-list-item>
             <md-divider inset></md-divider>
             <md-list-item href="group.html">Group</md-list-item>
-            <md-list-item href="group.html?group=ln">Leo/need</md-list-item>
-            <md-list-item href="group.html?group=mmj">MORE MORE JUMP</md-list-item>
-            <md-list-item href="group.html?group=vbs">Vivid BAD SQUAD</md-list-item>
-            <md-list-item href="group.html?group=wxs">Wonderlands x Showtime</md-list-item>
-            <md-list-item href="group.html?group=n25">Nightcord</md-list-item>
+            <md-list-item href="selected.html?group=ln">Leo/need</md-list-item>
+            <md-list-item href="selected.html?group=mmj">MORE MORE JUMP</md-list-item>
+            <md-list-item href="selected.html?group=vbs">Vivid BAD SQUAD</md-list-item>
+            <md-list-item href="selected.html?group=wxs">Wonderlands x Showtime</md-list-item>
+            <md-list-item href="selected.html?group=n25">Nightcord</md-list-item>
         </md-list>
     </div>
 </div>
@@ -143,57 +143,50 @@ md-card {
     </div>
 
     <div class="grid">
-        <md-card href="group/leoneed">
+        <md-card href="selected.html?group=ln">
             <img class="card-img" src="image/ln.webp">
             <div class="content">
             <div class="title">Leo/Need</div>
-            <div class="subtitle">30 Songs</div>
+            <div class="subtitle" id="ln-song-count">185 Songs</div>
             </div>
         </md-card>
 
-        <md-card>
+        <md-card href="selected.html?group=mmj">
             <img class="card-img" src="image/mmj.webp">
             <div class="content">
             <div class="title">More More Jump</div>
-            <div class="subtitle">27 Songs</div>
+            <div class="subtitle" id="mmj-song-count">169 Songs</div>
             </div>
         </md-card>
 
-        <md-card>
+        <md-card href="selected.html?group=vbs">
             <img class="card-img" src="image/vbs.webp">
             <div class="content">
             <div class="title">Viva Bad Squad</div>
-            <div class="subtitle">27 Songs</div>
+            <div class="subtitle" id="vbs-song-count">152 Songs</div>
             </div>
         </md-card>
 
-        <md-card>
+        <md-card href="selected.html?group=wxs">
             <img class="card-img" src="image/wxs.webp">
             <div class="content">
             <div class="title">Wonderland X Showtime</div>
-            <div class="subtitle">27 Songs</div>
+            <div class="subtitle" id="wxs-song-count">161 Songs</div>
             </div>
         </md-card>
 
-        <md-card>
+        <md-card href="selected.html?group=n25">
             <img class="card-img" src="image/n25.webp">
             <div class="content">
             <div class="title">Nightchord at 25</div>
-            <div class="subtitle">27 Songs</div>
+            <div class="subtitle" id="n25-song-count">169 Songs</div>
             </div>
         </md-card>
     </div>
-
-    <!-- <div class="card">
-        <md-list id="songList"></md-list>
-    </div> -->
 
     <div class="player">
         <audio id="player" controls></audio>
     </div>
 </div>
-
-
-
 </body>
 </html>

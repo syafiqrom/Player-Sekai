@@ -57,6 +57,10 @@ body {
 
 .header {
     padding-left: 20px;
+    display: flex; 
+    flex-direction: row; 
+    align-items: center; 
+    gap: 10px;
 }
 
 .card {
@@ -114,11 +118,29 @@ audio {
     scrollbar-color: #b9aaf0 transparent;
 }
 
+.charImg {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 5px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: opacity 0.15s ease, outline 0.15s ease;
+}
+
+/* .charImg:not(.active) {
+    opacity: 0.45;
+} */
+
+.charImg.active {
+    outline: 3px solid #ebddfe;
+    opacity: 1;
+}
+
 #searchBar {
     margin: 0 20px 20px 20px;
     flex: 1;
 }
-
 </style>
 </head>
 
@@ -142,12 +164,21 @@ audio {
 
 <div class="main">
     <div class="header">
-        <!-- <h1 class="md-typescale-display-medium">Song List</h1> -->
         <md-outlined-text-field
             id="searchBar"
             placeholder="Search songs"
-            style="width: 300px; margin-top: 10px;">
+            style="max-width: 300px; margin-top: 10px;">
         </md-outlined-text-field>
+
+        <div style="width: 100px;">
+            <p id="songCount"></p>
+        </div>
+
+        <md-checkbox id="checkbox-two"></md-checkbox>
+        <label for="checkbox-two">Include all selected</label>
+
+        <div id="charContainer" style="display:flex; align-items:center; margin-left: auto; padding-right: 20px;">
+        </div>
     </div>
 
     <div class="card">
@@ -160,19 +191,106 @@ audio {
 </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const group = params.get("group");
+const charMap = {
+    ln:  ["ichika", "saki", "honami", "shiho"],
+    mmj: ["minori", "haruka", "airi", "shizuku"],
+    vbs: ["kohane", "an", "akito", "toya"],
+    wxs: ["tsukasa", "emu", "nene", "rui"],
+    n25: ["kanade", "mafuyu", "ena", "mizuki"],
+};
 
-const url = group ? `/api/songs?group=${group}` : "/api/songs";
-
-const res = await fetch(url);
-const songs = await res.json();
 let allSongs = [];
+let groupSongs = []; // songs for current group before char filtering
+let activeChars = new Set();
+let currentGroup = null;
 
 async function loadSongs() {
+    const params = new URLSearchParams(window.location.search);
+    currentGroup = params.get("group");
+
+    // Support legacy single ?char= and new multi ?chars=a,b,c
+    const charParam = params.get("chars") || params.get("char");
+    if (charParam) {
+        charParam.split(",").forEach(c => activeChars.add(c.toLowerCase()));
+    }
+
     const res = await fetch("/api/songs");
     allSongs = await res.json();
-    renderSongs(allSongs);
+
+    if (currentGroup) {
+        allSongs = allSongs.filter(song =>
+            song.toLowerCase().startsWith(currentGroup.toLowerCase() + "/")
+        );
+    }
+
+    groupSongs = [...allSongs];
+
+    if (currentGroup) renderCharImg(currentGroup);
+
+    applyCharFilter();
+}
+
+function renderCharImg(group) {
+    const container = document.getElementById("charContainer");
+    const chars = charMap[group] || [];
+
+    container.innerHTML = chars.map(char => {
+        const isActive = activeChars.has(char);
+        return `<img class="charImg ${isActive ? "active" : ""}"
+            src="image/${char}.jpg"
+            data-char="${char}"
+            title="${char}">`;
+    }).join("");
+
+    container.querySelectorAll(".charImg").forEach(img => {
+        img.addEventListener("click", () => toggleChar(img.dataset.char));
+    });
+}
+
+function toggleChar(char) {
+    if (activeChars.has(char)) {
+        activeChars.delete(char);
+    } else {
+        activeChars.add(char);
+    }
+
+    // Update outline styles
+    document.querySelectorAll(".charImg").forEach(img => {
+        const isActive = activeChars.has(img.dataset.char);
+        img.classList.toggle("active", isActive);
+    });
+
+    // Update URL without reloading
+    const params = new URLSearchParams(window.location.search);
+    if (activeChars.size > 0) {
+        params.set("chars", [...activeChars].join(","));
+    } else {
+        params.delete("chars");
+    }
+    params.delete("char"); // clean up legacy param
+    history.replaceState(null, "", "?" + params.toString());
+
+    applyCharFilter();
+}
+
+function applyCharFilter() {
+    let filtered = [...groupSongs];
+
+    if (activeChars.size > 0) {
+        filtered = filtered.filter(song => {
+            const lower = song.toLowerCase();
+            return [...activeChars].some(char =>
+                lower.includes("/" + char + "/") || lower.includes(char)
+            );
+        });
+    }
+
+    const q = document.getElementById("searchBar").value.toLowerCase();
+    if (q) {
+        filtered = filtered.filter(song => song.toLowerCase().includes(q));
+    }
+
+    renderSongs(filtered);
 }
 
 function renderSongs(songs) {
@@ -183,31 +301,26 @@ function renderSongs(songs) {
 
     songs.forEach((song, index) => {
         const item = document.createElement("md-list-item");
-        item.textContent = song.replace(".mp3", "");
+        item.textContent = song.split("/").pop().replace(".mp3", "");
 
         item.onclick = () => {
-        player.src = `/songs/${song}`;
-        player.play();
+            player.src = `/songs/${song}`;
+            player.play();
         };
 
         songList.appendChild(item);
 
         if (index < songs.length - 1) {
-        const divider = document.createElement("md-divider");
-        divider.setAttribute("inset", "");
-        songList.appendChild(divider);
+            const divider = document.createElement("md-divider");
+            divider.setAttribute("inset", "");
+            songList.appendChild(divider);
         }
     });
+    document.getElementById("songCount").textContent = `${songs.length} songs`;
 }
 
-document.getElementById("searchBar").addEventListener("input", (e) => {
-    const q = e.target.value.toLowerCase();
-
-    const filtered = allSongs.filter(song =>
-        song.toLowerCase().includes(q)
-    );
-
-    renderSongs(filtered);
+document.getElementById("searchBar").addEventListener("input", () => {
+    applyCharFilter();
 });
 
 loadSongs();
