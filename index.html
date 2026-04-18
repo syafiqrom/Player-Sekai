@@ -138,12 +138,12 @@ audio {
     transition: opacity 0.15s ease, outline 0.15s ease;
 }
 
-/* .charImg:not(.active) {
+.charImg:not(.active) {
     opacity: 0.45;
-} */
+}
 
 .charImg.active {
-    outline: 3px solid #ebddfe;
+    outline: 3px solid #4f3a7a;
     opacity: 1;
 }
 
@@ -332,8 +332,12 @@ function renderCharImg() {
             data-char="${char}"
             title="${char}">`;
     }).join("");
+ 
+    container.querySelectorAll(".charImg").forEach(img => {
+        img.addEventListener("click", () => toggleChar(img.dataset.char));
+    });
 
-    // TODO
+    // all group chars in dialog
     const dialog = document.getElementById("charDialog");
     const form = dialog.querySelector("#form-id");
 
@@ -344,8 +348,8 @@ function renderCharImg() {
             data-char="${char}"
             title="${char}">`;
     }).join("");
- 
-    container.querySelectorAll(".charImg").forEach(img => {
+
+    form.querySelectorAll(".charImg").forEach(img => {
         img.addEventListener("click", () => toggleChar(img.dataset.char));
     });
 }
