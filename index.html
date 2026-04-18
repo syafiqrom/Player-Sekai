@@ -29,6 +29,11 @@
     --md-sys-color-surface: #e3e1f9;
     --md-sys-color-on-surface: #4f3a7a;
     --md-divider-color: #a08cd9;
+    /* --md-filled-button-label-text-color: #e3e1f9;
+    --md-filled-button-hover-state-layer-color: #e3e1f9;
+    --md-filled-button-hover-state-layer-opacity: 1;
+    --md-filled-button-container-color: #4f3a7a;
+    --md-filled-button-container-color-hover: #a08cd9; */
 }
 
 body {
@@ -152,7 +157,7 @@ audio {
 <body>
 
 <div class="sidebar" style="border-right: 2px solid #a08cd9;">
-    <h1 class="md-typescale-display-small">Pocket</h1>
+    <h1 class="md-typescale-display-small">PocketSekai</h1>
     <div class="card">
         <md-list>
             <md-list-item data-href="?view=home">Home</md-list-item>
@@ -162,17 +167,18 @@ audio {
             <md-list-item data-href="?group=vbs">Vivid BAD SQUAD</md-list-item>
             <md-list-item data-href="?group=wxs">Wonderlands x Showtime</md-list-item>
             <md-list-item data-href="?group=n25">Nightcord</md-list-item>
+            <md-list-item data-href="?group=vs">Virtual Singers</md-list-item>
         </md-list>
     </div>
 </div>
 
 <div class="main">
     <div class="header">
-        <md-outlined-text-field
+        <md-filled-text-field
             id="searchBar"
             placeholder="Search songs"
             style="max-width: 300px; margin-top: 10px;">
-        </md-outlined-text-field>
+        </md-filled-text-field>
 
         <div style="width: 90px; text-align: center;">
             <p id="songCount"></p>
@@ -183,6 +189,19 @@ audio {
 
         <div id="charContainer" style="display:flex; align-items:center; margin-left: auto; padding-right: 20px;">
         </div>
+
+        <md-filled-button id="open-dialog-btn">Open</md-filled-button>
+        <md-dialog id="charDialog">
+            <div slot="headline">
+                Select character(s)
+            </div>
+            <form slot="content" id="form-id" method="dialog">
+                
+            </form>
+            <div slot="actions">
+                <md-filled-button form="form-id">Ok</md-filled-button>
+            </div>
+        </md-dialog>
     </div>
 
     <div class="card" style="margin: 5px 20px 20px 20px;">
@@ -195,18 +214,16 @@ audio {
 </div>
 
 <div class="sidebar" style="border-left: 2px solid #a08cd9;">
-    <h1 class="md-typescale-display-small">Queue</h1>
+    <h1 class="md-typescale-display-small">Playing</h1>
     <div class="card">
         <md-list>
             <md-list-item style="color: #e3e1f9;" id="playTitle">Play a song!</md-list-item>
         </md-list>
-
-        <md-divider inset></md-divider>
-
-        <md-list id="queueList" style="display: hidden;"></md-list>
-            
-        </md-list>
+    </div>
         
+    <div class="card" style="margin-top: 20px; max-height: 475px; overflow-y: scroll;">
+        <md-list id="queueList"></md-list>
+        </md-list>
     </div>
 </div>
 
@@ -236,6 +253,11 @@ document.querySelectorAll("md-list-item[data-href]").forEach(item => {
 
 // Handle browser back/forward
 window.addEventListener("popstate", onNavigate);
+
+document.getElementById("open-dialog-btn").addEventListener("click", () => {
+    const dialog = document.getElementById("charDialog");
+    dialog.show();
+});
  
 function onNavigate() {
     const params = new URLSearchParams(window.location.search);
@@ -254,6 +276,18 @@ function onNavigate() {
  
     // Update search bar
     document.getElementById("searchBar").value = "";
+
+    // hide char filter if no group or no chars for group
+    const charContainer = document.getElementById("charContainer");
+    const btn = document.getElementById("open-dialog-btn");
+
+    if (!currentGroup || !charMap[currentGroup]?.length) {
+        charContainer.style.display = "none";
+        btn.style.display = "flex";
+    } else {
+        charContainer.style.display = "flex";
+        btn.style.display = "none";
+    }
  
     loadAndRender();
 }
@@ -278,7 +312,13 @@ async function loadAndRender() {
 
 function renderCharImg() {
     const container = document.getElementById("charContainer");
-    const chars = currentGroup ? (charMap[currentGroup] || []) : [];
+    let chars;
+
+    if (currentGroup && charMap[currentGroup]) {
+        chars = charMap[currentGroup];
+    } else {
+        chars = [...new Set(Object.values(charMap).flat())];
+    }
  
     if (!chars.length) {
         container.innerHTML = "";
@@ -286,6 +326,18 @@ function renderCharImg() {
     }
  
     container.innerHTML = chars.map(char => {
+        const isActive = activeChars.has(char);
+        return `<img class="charImg ${isActive ? "active" : ""}"
+            src="image/${char}.jpg"
+            data-char="${char}"
+            title="${char}">`;
+    }).join("");
+
+    // TODO
+    const dialog = document.getElementById("charDialog");
+    const form = dialog.querySelector("#form-id");
+
+    form.innerHTML = chars.map(char => {
         const isActive = activeChars.has(char);
         return `<img class="charImg ${isActive ? "active" : ""}"
             src="image/${char}.jpg"
@@ -363,12 +415,14 @@ function renderSongs(songs) {
  
         item.onclick = () => {
             player.src = `/songs/${song}`;
+            player.currentTime = 8; // skip 8 seconds of silence at the start
             player.play();
             document.getElementById("playTitle").textContent = item.textContent;
         };
 
         // Queue
         const btn = document.createElement("md-filled-button");
+        btn.setAttribute("slot", "end");
         btn.textContent = "Q";
 
         btn.onclick = (e) => {
@@ -378,6 +432,9 @@ function renderSongs(songs) {
             const queueItem = document.createElement("md-list-item");
             queueItem.textContent = song.split("/").pop().replace(".mp3", "");
             queueList.appendChild(queueItem);
+            
+            btn.setAttribute("disabled", ""); // disable button after queuing
+            btn.textContent = queue.length; // show queue position
         };
  
         item.appendChild(btn);
@@ -399,6 +456,9 @@ player.addEventListener("ended", () => {
         player.play();
         document.getElementById("playTitle").textContent =
             next.split("/").pop().replace(".mp3", "");
+    }
+    else {
+        document.getElementById("playTitle").textContent = "Play a song!";
     }
 
     const queueList = document.getElementById("queueList");
