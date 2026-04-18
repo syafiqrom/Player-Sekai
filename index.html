@@ -151,6 +151,11 @@ audio {
     margin: 0 0 20px 20px;
     flex: 1;
 }
+
+/* Load-more sentinel */
+#loadSentinel {
+    height: 1px;
+}
 </style>
 </head>
 
@@ -206,15 +211,18 @@ audio {
 
     <div class="card" style="margin: 5px 20px 20px 20px;">
         <md-list id="songList"></md-list>
+        <div id="loadSentinel"></div>
     </div>
 
     <div class="player">
-        <audio id="player" controls></audio>
+        <!-- preload="none" avoids fetching audio until actually played -->
+        <audio id="player" controls preload="none"></audio>
     </div>
 </div>
 
 <div class="sidebar" style="border-left: 2px solid #a08cd9;">
     <h1 class="md-typescale-display-small">Playing</h1>
+    
     <div class="card">
         <md-list>
             <md-list-item style="color: #e3e1f9;" id="playTitle">Play a song!</md-list-item>
@@ -223,11 +231,11 @@ audio {
         
     <div class="card" style="margin-top: 20px; max-height: 475px; overflow-y: scroll;">
         <md-list id="queueList"></md-list>
-        </md-list>
     </div>
 </div>
 
 <script>
+// ─── Constants ───────────────────────────────────────
 const charMap = {
     ln:  ["ichika", "saki", "honami", "shiho"],
     mmj: ["minori", "haruka", "airi", "shizuku"],
@@ -236,12 +244,52 @@ const charMap = {
     n25: ["kanade", "mafuyu", "ena", "mizuki"],
 };
 
-let allSongs = [];
+const PAGE_SIZE = 200; // songs rendered per batch
+
+// ─── State ───────────────────────────────────────
+let allSongs = []; // full song list, fetched once
 let groupSongs = []; // songs for current group before char filtering
+
+let filteredSongs = [];   // current filtered view
+let renderedCount = 0;    // how many songs are currently in the DOM
 let activeChars = new Set();
 let currentGroup = null;
 let queue = [];
 
+// ─── DOM refs ───────────────────────────────────────
+const songList      = document.getElementById("songList");
+const queueList     = document.getElementById("queueList");
+const player        = document.getElementById("player");
+const playTitle     = document.getElementById("playTitle");
+const songCountEl   = document.getElementById("songCount");
+const searchBar     = document.getElementById("searchBar");
+const charContainer = document.getElementById("charContainer");
+const openDialogBtn = document.getElementById("open-dialog-btn");
+const checkboxAll   = document.getElementById("checkbox-all");
+const charDialog    = document.getElementById("charDialog");
+const sentinel      = document.getElementById("loadSentinel");
+const songCard      = document.getElementById("songCard");
+
+// ─── Debounce function ───────────────────────────────────────
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ─── Dialog ───────────────────────────────────────
+openDialogBtn.addEventListener("click", () => {
+    const dialog = document.getElementById("charDialog");
+    dialog.show();
+});
+
+// ─── Sidebar Navigation ───────────────────────────────────────
 // Intercept sidebar clicks — update URL without reloading
 document.querySelectorAll("md-list-item[data-href]").forEach(item => {
     item.addEventListener("click", () => {
@@ -253,11 +301,6 @@ document.querySelectorAll("md-list-item[data-href]").forEach(item => {
 
 // Handle browser back/forward
 window.addEventListener("popstate", onNavigate);
-
-document.getElementById("open-dialog-btn").addEventListener("click", () => {
-    const dialog = document.getElementById("charDialog");
-    dialog.show();
-});
  
 function onNavigate() {
     const params = new URLSearchParams(window.location.search);
@@ -281,7 +324,10 @@ function onNavigate() {
     const charContainer = document.getElementById("charContainer");
     const btn = document.getElementById("open-dialog-btn");
 
-    if (!currentGroup || !charMap[currentGroup]?.length) {
+    if (currentGroup === "vs") {
+        charContainer.style.display = "none";
+        btn.style.display = "none";
+    } else if (!currentGroup || !charMap[currentGroup]?.length) {
         charContainer.style.display = "none";
         btn.style.display = "flex";
     } else {
@@ -292,12 +338,23 @@ function onNavigate() {
     loadAndRender();
 }
 
+// ─── Fetch song (once) ───────────────────────────────────────
 async function loadAndRender() {
     if (!allSongs.length) {
-        const res = await fetch("/api/songs");
-        allSongs = await res.json();
+        // Show skeleton/loading state while fetching
+        songList.innerHTML = "<md-list-item>Loading…</md-list-item>";
+        
+        try {
+            const res = await fetch("/api/songs");
+            allSongs = await res.json();
+        } catch (error) {
+            console.error("Error fetching songs:", error);
+            songList.innerHTML = "<md-list-item>Error loading songs</md-list-item>";
+            return;
+        }
     }
  
+    // Filter songs by group
     if (currentGroup) {
         groupSongs = allSongs.filter(song =>
             song.toLowerCase().startsWith(currentGroup.toLowerCase() + "/")
@@ -305,13 +362,16 @@ async function loadAndRender() {
     } else {
         groupSongs = [...allSongs];
     }
+
+    // Store on window so applyFilters can always access it
+    window._groupSongs = groupSongs;
  
     renderCharImg();
     applyFilters();
 }
 
+// ─── Character Image ───────────────────────────────────────
 function renderCharImg() {
-    const container = document.getElementById("charContainer");
     let chars;
 
     if (currentGroup && charMap[currentGroup]) {
@@ -321,11 +381,11 @@ function renderCharImg() {
     }
  
     if (!chars.length) {
-        container.innerHTML = "";
+        charContainer.innerHTML = "";
         return;
     }
  
-    container.innerHTML = chars.map(char => {
+    charContainer.innerHTML = chars.map(char => {
         const isActive = activeChars.has(char);
         return `<img class="charImg ${isActive ? "active" : ""}"
             src="image/${char}.jpg"
@@ -333,7 +393,7 @@ function renderCharImg() {
             title="${char}">`;
     }).join("");
  
-    container.querySelectorAll(".charImg").forEach(img => {
+    charContainer.querySelectorAll(".charImg").forEach(img => {
         img.addEventListener("click", () => toggleChar(img.dataset.char));
     });
 
@@ -361,6 +421,7 @@ function toggleChar(char) {
         activeChars.add(char);
     }
  
+    // Update both main and dialog images
     document.querySelectorAll(".charImg").forEach(img => {
         img.classList.toggle("active", activeChars.has(img.dataset.char));
     });
@@ -378,104 +439,164 @@ function toggleChar(char) {
     applyFilters();
 }
 
-document.getElementById("checkbox-all").addEventListener("change", applyFilters);
+// ─── Filtering ───────────────────────────────────────────────────────────────
+checkboxAll.addEventListener("change", applyFilters);
+searchBar.addEventListener("input", debounce(applyFilters, 180));
 
 function applyFilters() {
-    let songs = [...groupSongs];
+    let songs = [...(window._groupSongs || [])];
  
     if (activeChars.size > 0) {
-        if(document.getElementById("checkbox-all").checked) {
-            songs = songs.filter(song => {
-                const lower = song.toLowerCase();
-                return [...activeChars].every(char =>
-                    lower.includes("/" + char + "/") || lower.includes(char)
-                );
-            });
-        } else {
-            songs = songs.filter(song => {
-                const lower = song.toLowerCase();
-                return [...activeChars].some(char =>
-                    lower.includes("/" + char + "/") || lower.includes(char)
-                );
-            });
-        }
+        const chars = [...activeChars];
+        const includeAll = document.getElementById("checkbox-all").checked;
+        songs = songs.filter(song => {
+            const lower = song.toLowerCase();
+            return includeAll
+                ? chars.every(c  => lower.includes("/" + c + "/") || lower.includes(c))
+                : chars.some(c   => lower.includes("/" + c + "/") || lower.includes(c));
+        });
     }
  
     const q = document.getElementById("searchBar").value.toLowerCase();
     if (q) songs = songs.filter(s => s.toLowerCase().includes(q));
  
-    renderSongs(songs);
+    filteredSongs = songs;
+    renderedCount = 0;
+    songList.innerHTML = "";
+    songCountEl.textContent = `${songs.length} songs`;
+
+    renderNextBatch();
 }
 
-function renderSongs(songs) {
-    const songList = document.getElementById("songList");
-    const player = document.getElementById("player");
+// ─── Incremental rendering ───────────────────────
+function renderNextBatch() {
+    // If we've rendered all songs, do nothing
+    const end = Math.min(renderedCount + PAGE_SIZE, filteredSongs.length);
+    if (renderedCount >= filteredSongs.length) return;
  
-    songList.innerHTML = "";
+    // Create a document fragment to minimize reflows
+    const frag = document.createDocumentFragment();
  
-    songs.forEach((song, index) => {
+    // Render the next batch of songs
+    for (let i = renderedCount; i < end; i++) {
+        const song = filteredSongs[i];
+        const label = song.split("/").pop().replace(".mp3", "");
+ 
         const item = document.createElement("md-list-item");
-        item.textContent = song.split("/").pop().replace(".mp3", "");
+        item.textContent = label;
+        item.dataset.song = song;
+        item.dataset.label = label;
+        frag.appendChild(item);
  
-        item.onclick = () => {
-            player.src = `/songs/${song}`;
-            player.currentTime = 8; // skip 8 seconds of silence at the start
-            player.play();
-            document.getElementById("playTitle").textContent = item.textContent;
-        };
-
-        // Queue
-        const btn = document.createElement("md-filled-button");
-        btn.setAttribute("slot", "end");
-        btn.textContent = "Q";
-
-        btn.onclick = (e) => {
-            e.stopPropagation(); // prevent triggering item click
-            queue.push(song);
-            const queueList = document.getElementById("queueList");
-            const queueItem = document.createElement("md-list-item");
-            queueItem.textContent = song.split("/").pop().replace(".mp3", "");
-            queueList.appendChild(queueItem);
-            
-            btn.setAttribute("disabled", ""); // disable button after queuing
-            btn.textContent = queue.length; // show queue position
-        };
- 
-        item.appendChild(btn);
-        songList.appendChild(item);
- 
-        if (index < songs.length - 1) {
+        if (i < filteredSongs.length - 1) {
             const divider = document.createElement("md-divider");
             divider.setAttribute("inset", "");
-            songList.appendChild(divider);
+            frag.appendChild(divider);
         }
-    });
-    document.getElementById("songCount").textContent = `${songs.length} songs`;
+    }
+ 
+    // Append the batch to the DOM and update the rendered count
+    songList.appendChild(frag);
+    renderedCount = end;
 }
 
+// ─── IntersectionObserver for infinite scroll ───────────
+// Sentinel element at the end of the list to trigger loading more songs
+const io = new IntersectionObserver(entries => {
+    // When the sentinel is visible, render the next batch of songs
+    if (entries[0].isIntersecting) renderNextBatch();
+}, { root: songCard, rootMargin: "200px" });
+io.observe(sentinel);
+
+// ─── Event delegation for song list ────────────
+songList.addEventListener("click", e => {
+    const item = e.target.closest("md-list-item");
+    if (!item) return;
+ 
+    const song  = item.dataset.song;
+    const label = item.dataset.label;
+    if (!song) return;
+ 
+    // Check if the "Q" button area was clicked (md-filled-button is slotted inside)
+    const btn = e.target.closest("md-filled-button");
+    if (btn) {
+        if (btn.hasAttribute("disabled")) return;
+        queue.push(song);
+        btn.setAttribute("disabled", "");
+        btn.textContent = queue.length;
+ 
+        // Append to queue list — no full re-render
+        const qItem = document.createElement("md-list-item");
+        qItem.textContent = label;
+        queueList.appendChild(qItem);
+        return;
+    }
+ 
+    // Play
+    player.src = `/songs/${song}`;
+    player.currentTime = 8;
+    player.play();
+    playTitle.textContent = label;
+});
+
+// Inject the Q button lazily when items are stamped (MutationObserver)
+// — avoids paying the cost of button creation for off-screen items.
+const qBtnObserver = new MutationObserver(mutations => {
+    mutations.forEach(m => {
+        m.addedNodes.forEach(node => {
+            if (node.nodeName === "MD-LIST-ITEM" && node.dataset.song && !node.querySelector("md-filled-button")) {
+                const btn = document.createElement("md-filled-button");
+                btn.setAttribute("slot", "end");
+                btn.textContent = "Q";
+                node.appendChild(btn);
+            }
+        });
+    });
+});
+qBtnObserver.observe(songList, { childList: true });
+
+// ─── Queue: play next on ended ───────────────────────────────────────
 player.addEventListener("ended", () => {
     if (queue.length > 0) {
         const next = queue.shift();
         player.src = `/songs/${next}`;
         player.play();
-        document.getElementById("playTitle").textContent =
-            next.split("/").pop().replace(".mp3", "");
+        playTitle.textContent = next.split("/").pop().replace(".mp3", "");
     }
     else {
-        document.getElementById("playTitle").textContent = "Play a song!";
+        playTitle.textContent = "Play a song!";
     }
 
-    const queueList = document.getElementById("queueList");
-    queueList.innerHTML = "";
+    // Re-render queue list
+    const frag = document.createDocumentFragment();
 
-    queue.forEach((song, index) => {
-        const queueItem = document.createElement("md-list-item");
-        queueItem.textContent = song.split("/").pop().replace(".mp3", "");
-        queueList.appendChild(queueItem);
+    // Also re-enable Q buttons for songs that were just played
+    queue.forEach(s => {
+        const qi = document.createElement("md-list-item");
+        qi.textContent = s.split("/").pop().replace(".mp3", "");
+        frag.appendChild(qi);
     });
-});
 
-document.getElementById("searchBar").addEventListener("input", applyFilters);
+    // Clear and re-populate the queue list
+    queueList.innerHTML = "";
+    queueList.appendChild(frag);
+
+    // Re-enable all Q buttons since the first song in the queue has been removed
+    document.querySelectorAll("#songList md-list-item").forEach(item => {
+        const btn = item.querySelector("md-filled-button");
+        if (btn) {
+            const song = item.dataset.song;
+            if (queue.includes(song)) {
+                btn.setAttribute("disabled", "");
+                btn.textContent = queue.indexOf(song) + 1;
+            } else {
+                btn.removeAttribute("disabled");
+                btn.textContent = "Q";
+            }
+        }
+    });
+    
+});
 
 onNavigate();
 </script>
