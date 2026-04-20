@@ -22,18 +22,13 @@
 
 <style>
 :root {
-    --md-sys-color-primary: #ebddfe;
-    --md-sys-color-on-primary: #4e368b;
+    --md-sys-color-primary: #4e368b;
+    --md-sys-color-on-primary: #ebddfe;
     --md-sys-color-background: #beabf5;
     --md-sys-color-on-background: #4f3a7a;
     --md-sys-color-surface: #e3e1f9;
     --md-sys-color-on-surface: #4f3a7a;
     --md-divider-color: #a08cd9;
-    /* --md-filled-button-label-text-color: #e3e1f9;
-    --md-filled-button-hover-state-layer-color: #e3e1f9;
-    --md-filled-button-hover-state-layer-opacity: 1;
-    --md-filled-button-container-color: #4f3a7a;
-    --md-filled-button-container-color-hover: #a08cd9; */
 }
 
 body {
@@ -221,8 +216,15 @@ audio {
 </div>
 
 <div class="sidebar" style="border-left: 2px solid #a08cd9;">
-    <h1 class="md-typescale-display-small">Playing</h1>
-    
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h1 class="md-typescale-display-small">Playing</h1>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="auto-switch">Autoplay</label>
+            <md-switch id="auto-switch" selected></md-switch>
+        </div>
+    </div>
+
     <div class="card">
         <md-list>
             <md-list-item style="color: #e3e1f9;" id="playTitle">Play a song!</md-list-item>
@@ -255,6 +257,8 @@ let renderedCount = 0;    // how many songs are currently in the DOM
 let activeChars = new Set();
 let currentGroup = null;
 let queue = [];
+let currentItem = null;
+let currentSongPath = null;
 
 // ─── DOM refs ───────────────────────────────────────
 const songList      = document.getElementById("songList");
@@ -269,8 +273,9 @@ const checkboxAll   = document.getElementById("checkbox-all");
 const charDialog    = document.getElementById("charDialog");
 const sentinel      = document.getElementById("loadSentinel");
 const songCard      = document.getElementById("songCard");
+const autoSwitch    = document.getElementById("auto-switch");
 
-// ─── Debounce function ───────────────────────────────────────
+// ─── Helper functions ───────────────────────────────────────
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -281,6 +286,23 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+function playSong(song) {
+    currentSongPath = song;
+    player.src = `/songs/${song}`;
+    player.currentTime = 8;
+    player.play();
+    playTitle.textContent = song.split("/").pop().replace(".mp3", "");
+    styleCurrentItem();
+    console.log(currentItem);
+}
+
+function styleCurrentItem(){
+    // disable Q button and change color for currently playing song
+    currentItem.setAttribute("disabled", ""); 
+    currentItem.style.color = "#b9aaf0";
+    currentItem.style.backgroundColor = "#d6cff5";
 }
 
 // ─── Dialog ───────────────────────────────────────
@@ -334,7 +356,7 @@ function onNavigate() {
         charContainer.style.display = "flex";
         btn.style.display = "none";
     }
- 
+
     loadAndRender();
 }
 
@@ -360,7 +382,11 @@ async function loadAndRender() {
             song.toLowerCase().startsWith(currentGroup.toLowerCase() + "/")
         );
     } else {
-        groupSongs = [...allSongs];
+        groupSongs = [...allSongs].sort((a, b) => {
+            const nameA = a.split("/").pop().toLowerCase();
+            const nameB = b.split("/").pop().toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
     }
 
     // Store on window so applyFilters can always access it
@@ -498,6 +524,15 @@ function renderNextBatch() {
     // Append the batch to the DOM and update the rendered count
     songList.appendChild(frag);
     renderedCount = end;
+
+    // If the current song is in the newly rendered batch, style it
+    if (currentSongPath) {
+        const item = songList.querySelector(`md-list-item[data-song="${CSS.escape(currentSongPath)}"]`);
+        if (item) {
+            currentItem = item;
+            styleCurrentItem();
+        }
+    }
 }
 
 // ─── IntersectionObserver for infinite scroll ───────────
@@ -511,13 +546,14 @@ io.observe(sentinel);
 // ─── Event delegation for song list ────────────
 songList.addEventListener("click", e => {
     const item = e.target.closest("md-list-item");
+    console.log("Clicked item:", item);
     if (!item) return;
  
     const song  = item.dataset.song;
     const label = item.dataset.label;
     if (!song) return;
- 
-    // Check if the "Q" button area was clicked (md-filled-button is slotted inside)
+
+    // If the "Q" button was clicked
     const btn = e.target.closest("md-filled-button");
     if (btn) {
         if (btn.hasAttribute("disabled")) return;
@@ -531,12 +567,17 @@ songList.addEventListener("click", e => {
         queueList.appendChild(qItem);
         return;
     }
- 
-    // Play
-    player.src = `/songs/${song}`;
-    player.currentTime = 8;
-    player.play();
-    playTitle.textContent = label;
+
+    // re-enable previous song's Q button and revert color if exists
+    if (currentItem) {
+        currentItem.removeAttribute("disabled");
+        currentItem.style.color = "";
+        currentItem.style.backgroundColor = "";
+    }
+
+    // track currently playing item for autoplay
+    currentItem = item;
+    playSong(song);
 });
 
 // Inject the Q button lazily when items are stamped (MutationObserver)
@@ -555,15 +596,41 @@ const qBtnObserver = new MutationObserver(mutations => {
 });
 qBtnObserver.observe(songList, { childList: true });
 
-// ─── Queue: play next on ended ───────────────────────────────────────
+// ─── Play next on ended ───────────────────────────────────────
 player.addEventListener("ended", () => {
+    // re-enable previous song's Q button and revert color if exists
+    if (currentItem) {
+        currentItem.removeAttribute("disabled");
+        currentItem.style.color = "";
+        currentItem.style.backgroundColor = "";
+    }
+
+    // Priority 1: play next song from the manual queue
     if (queue.length > 0) {
         const next = queue.shift();
-        player.src = `/songs/${next}`;
-        player.play();
-        playTitle.textContent = next.split("/").pop().replace(".mp3", "");
+        currentItem = songList.querySelector(`md-list-item[data-song="${next}"]`);
+        playSong(next);
+        console.log("Playing next from queue:", currentItem.dataset.label);
     }
+
+    // Priority 2: autoplay — advance to the next song in filteredSongs
+    else if (autoSwitch.selected && currentItem) {
+        let next = currentItem.nextElementSibling;
+
+        // skip over <md-divider> elements
+        while (next && next.tagName !== "MD-LIST-ITEM") {
+            next = next.nextElementSibling;
+        }
+
+        if (next && next.dataset.song) {
+            currentItem = next; // advance the pointer
+            playSong(next.dataset.song, next.dataset.label);
+            return;
+        }
+    }
+
     else {
+        currentItem = null;
         playTitle.textContent = "Play a song!";
     }
 
