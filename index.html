@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Player Sekai</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -29,134 +30,292 @@
     --md-sys-color-surface: #e3e1f9;
     --md-sys-color-on-surface: #4f3a7a;
     --md-divider-color: #a08cd9;
+    --sidebar-width: 220px;
+    --header-h: 64px;
+    --player-h: 64px;
 }
+
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
     margin: 0;
-    display: flex;
-    height: 100vh;
     font-family: Roboto, sans-serif;
     background: var(--md-sys-color-background);
     color: var(--md-sys-color-on-background);
+    height: 100dvh;
     overflow: hidden;
+    display: grid;
+    grid-template:
+        "left  header  right" var(--header-h)
+        "left  main    right" 1fr
+        "player player player" var(--player-h)
+        / var(--sidebar-width) 1fr var(--sidebar-width);
 }
 
-.sidebar {
-    width: 250px;
-    padding-left: 20px;
-    padding-right: 20px;
-}
+/* ── Sidebars ── */
+.sidebar-left  { grid-area: left;  border-right: 2px solid #a08cd9; }
+.sidebar-right { grid-area: right; border-left:  2px solid #a08cd9; }
 
-.main {
-    flex: 1;
+.sidebar-left,
+.sidebar-right {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-width: 500px;
+    padding: 0 20px;
+    background: var(--md-sys-color-background);
+    z-index: 10;
 }
 
+.sidebar-left h1,
+.sidebar-right h1 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 2rem;
+}
+
+.sidebar-right-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ── Header ── */
 .header {
-    padding-left: 20px;
-    display: flex; 
-    flex-direction: row; 
-    align-items: center; 
-    gap: 10px;
+    grid-area: header;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px;
+    overflow: hidden;
 }
 
+/* ── Main content ── */
+.main {
+    grid-area: main;
+    overflow: hidden;
+    padding: 5px 20px 20px;
+}
+
+/* ── Player bar ── */
+.player {
+    grid-area: player;
+    background: #4f3a7a;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+}
+
+audio { width: 100%; height: 50px; }
+
+/* ── Shared card ── */
 .card {
     background: var(--md-sys-color-surface);
-    border-radius: 28px;
+    border-radius: 20px;
     overflow: auto;
     flex: 1;
+    min-height: 0;
 }
 
-md-list {
-    padding: 0;
-}
+.sidebar-left  .card { height: calc(100dvh - var(--header-h) - var(--player-h) - 56px); margin-bottom: 20px; }
+.sidebar-right .card:first-of-type { flex: 1; min-height: 0; max-height: 50%; }
+.sidebar-right .queue-card { flex: 1; min-height: 0; margin-top: 8px; overflow-y: auto; margin-bottom: 20px;}
+
+/* ── Song list card ── */
+.main .card { height: 100%; }
+
+md-list { padding: 0; }
 
 md-list-item {
     cursor: pointer;
     width: 100%;
 }
 
-md-list-item:hover, md-list-item:focus{
-    background: #d6cff5;
+md-list-item:hover,
+md-list-item:focus { background: #d6cff5; }
+
+md-divider { --md-divider-color: #a08cd9; }
+
+/* ── Search + count ── */
+#searchBar {
+    flex: 1;
+    min-width: 80px;
+    max-width: 260px;
+    --md-filled-text-field-container-shape: 12px;
 }
 
-md-divider {
-    --md-divider-color: #a08cd9;
+#songCount {
+    white-space: nowrap;
+    margin: 0;
 }
 
-md-filled-button {
-    margin-left: 20px;
-    align-self: center;
-}
-
-.player {
-    padding: 10px;
-    background: #4f3a7a;
-}
-
-audio {
-    width: 100%;
-}
-
-/* Scrollbar */
-.card::-webkit-scrollbar {
-    width: 10px;
-}
-
-.card::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.card::-webkit-scrollbar-thumb {
-    background: #b9aaf0;
-    border-radius: 10px;
-}
-
-.card::-webkit-scrollbar-thumb:hover {
-    background: #9f8de0;
-}
-
-.card {
-    scrollbar-color: #b9aaf0 transparent;
+/* ── Char images ── */
+#charContainer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
 }
 
 .charImg {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     padding: 5px;
     object-fit: cover;
     cursor: pointer;
-    transition: opacity 0.15s ease, outline 0.15s ease;
+    transition: opacity .15s, outline .15s;
 }
 
-.charImg:not(.active) {
-    opacity: 0.45;
+.charImg:not(.active) { opacity: .45; }
+.charImg.active { outline: 3px solid #4f3a7a; opacity: 1; }
+
+/* ── Select button ── */
+md-filled-button { white-space: nowrap; }
+
+/* ── Autoplay row ── */
+.autoplay-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
-.charImg.active {
-    outline: 3px solid #4f3a7a;
-    opacity: 1;
+/* ── Scrollbar ── */
+.card::-webkit-scrollbar { width: 8px; }
+.card::-webkit-scrollbar-track { background: transparent; }
+.card::-webkit-scrollbar-thumb { background: #b9aaf0; border-radius: 8px; }
+.card::-webkit-scrollbar-thumb:hover { background: #9f8de0; }
+.card { scrollbar-color: #b9aaf0 transparent; }
+
+#loadSentinel { height: 1px; }
+
+/* ── Hamburger / overlay (mobile) ── */
+.hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 20px;
+    flex-shrink: 0;
 }
 
-#searchBar {
-    margin: 0 0 20px 20px;
-    flex: 1;
+.hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--md-sys-color-on-background);
+    margin: 4px 0;
+    border-radius: 2px;
+    transition: .2s;
 }
 
-/* Load-more sentinel */
-#loadSentinel {
-    height: 1px;
+.small-btn {
+    display: none;
+    background: none;
+    border: 2px solid #a08cd9;
+    border-radius: 20px;
+    padding: 4px 12px;
+    cursor: pointer;
+    color: var(--md-sys-color-on-background);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    z-index: 9;
+}
+
+.overlay.open { display: block; }
+
+/* ── Tablet: hide right sidebar, show queue and search button ── */
+@media (max-width: 900px) {
+    body {
+        grid-template:
+            "left  header" var(--header-h)
+            "left  main  " 1fr
+            "player player" var(--player-h)
+            / var(--sidebar-width) 1fr;
+    }
+
+    .sidebar-right {
+        position: fixed;
+        top: 0; right: 0; bottom: var(--player-h);
+        width: 240px;
+        transform: translateX(100%);
+        transition: transform .25s ease;
+        border-left: 2px solid #a08cd9;
+        padding-top: 12px;
+    }
+
+    .sidebar-right.open { transform: translateX(0); }
+
+    .main { padding: 5px 20px 20px; }
+
+    #songCount { display: none; }
+    #searchBar { display: none; }
+    #searchBtn { display: block; }
+    #searchBtn { display: block; }
+    #queueBtn  { display: block; }
+}
+
+/* ── Mobile: hide left sidebar too, use hamburger ── */
+@media (max-width: 600px) {
+    :root { --sidebar-width: 0px; }
+
+    body {
+        grid-template:
+            "header" var(--header-h)
+            "main  " 1fr
+            "player" var(--player-h)
+            / 1fr;
+    }
+
+    .sidebar-left {
+        position: fixed;
+        top: 0; left: 0; bottom: var(--player-h);
+        width: 220px;
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        border-right: 2px solid #a08cd9;
+        padding-top: 12px;
+        z-index: 11;
+    }
+
+    .sidebar-left.open { transform: translateX(0); }
+
+    .hamburger { display: flex; flex-direction: column; }
+
+    .header { gap: 4px; padding: 0 8px; }
+
+    /* search popup */
+    #searchPopup {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.4);
+        z-index: 100;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 80px;
+    }
 }
 </style>
 </head>
 
 <body>
 
-<div class="sidebar" style="border-right: 2px solid #a08cd9;">
+<!-- Overlay for mobile drawers -->
+<div class="overlay" id="overlay"></div>
+
+<!-- Left sidebar -->
+<div class="sidebar-left" id="sidebarLeft">
     <h1 class="md-typescale-display-small">PocketSekai</h1>
     <div class="card">
         <md-list>
@@ -172,95 +331,119 @@ audio {
     </div>
 </div>
 
-<div class="main">
-    <div class="header">
-        <md-filled-text-field
-            id="searchBar"
-            placeholder="Search songs"
-            style="max-width: 300px; margin-top: 10px;">
-        </md-filled-text-field>
+<!-- Header -->
+<div class="header">
+    <!-- Hamburger (mobile only) -->
+    <button class="hamburger" id="hamburgerBtn" aria-label="Open menu">
+        <span></span><span></span><span></span>
+    </button>
 
-        <div style="width: 90px; text-align: center;">
-            <p id="songCount"></p>
+    <md-filled-text-field
+        id="searchBar"
+        placeholder="Search songs">
+    </md-filled-text-field>
+
+    <button class="small-btn" id="searchBtn">Search</button>
+    <!-- Search popup overlay -->
+    <div id="searchPopup">
+        <div style="
+            background: var(--md-sys-color-surface);
+            border-radius: 20px;
+            padding: 16px;
+            width: 90%;
+            max-width: 400px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        ">
+            <md-filled-text-field
+                id="searchBarPopup"
+                placeholder="Search songs"
+                style="flex: 1;">
+            </md-filled-text-field>
+            <md-filled-button id="closeSearchBtn">Close</md-filled-button>
         </div>
-
-        <md-checkbox id="checkbox-all"></md-checkbox>
-        <label for="checkbox-all">Include all</label>
-
-        <div id="charContainer" style="display:flex; align-items:center; margin-left: auto; padding-right: 20px;">
-        </div>
-
-        <md-filled-button id="open-dialog-btn">Open</md-filled-button>
-        <md-dialog id="charDialog">
-            <div slot="headline">
-                Select character(s)
-            </div>
-            <form slot="content" id="form-id" method="dialog">
-                
-            </form>
-            <div slot="actions">
-                <md-filled-button form="form-id">Ok</md-filled-button>
-            </div>
-        </md-dialog>
     </div>
 
-    <div class="card" style="margin: 5px 20px 20px 20px;">
+    <p id="songCount"></p>
+
+    <div style="margin-left: auto;">
+        <md-checkbox id="checkbox-all"></md-checkbox>
+    <label for="checkbox-all">All</label>
+    </div>
+    
+
+    <div id="charContainer"></div>
+
+    <md-filled-button id="open-dialog-btn" style="display:none;">Select</md-filled-button>
+
+    <!-- Queue button (tablet) -->
+    <button class="small-btn" id="queueBtn">Queue</button>
+
+    <md-dialog id="charDialog">
+        <div slot="headline">Select character(s)</div>
+        <form slot="content" id="form-id" method="dialog"></form>
+        <div slot="actions">
+            <md-filled-button form="form-id">Ok</md-filled-button>
+        </div>
+    </md-dialog>
+</div>
+
+<!-- Main song list -->
+<div class="main">
+    <div class="card">
         <md-list id="songList"></md-list>
         <div id="loadSentinel"></div>
     </div>
-
-    <div class="player">
-        <!-- preload="none" avoids fetching audio until actually played -->
-        <audio id="player" controls preload="none"></audio>
-    </div>
 </div>
 
-<div class="sidebar" style="border-left: 2px solid #a08cd9;">
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-        <h1 class="md-typescale-display-small">Playing</h1>
+<!-- Player bar -->
+<div class="player">
+    <audio id="player" controls preload="none"></audio>
+</div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label for="auto-switch">Autoplay</label>
+<!-- Right sidebar -->
+<div class="sidebar-right" id="sidebarRight">
+    <div class="sidebar-right-top">
+        <h1 class="md-typescale-display-small" style="margin:0;">Playing</h1>
+        <div class="autoplay-row">
+            <label for="auto-switch">Auto</label>
             <md-switch id="auto-switch" selected></md-switch>
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="max-height:120px; flex:none; margin-top:8px;">
         <md-list>
-            <md-list-item style="color: #e3e1f9;" id="playTitle">Play a song!</md-list-item>
+            <md-list-item style="color:#e3e1f9;" id="playTitle">Play a song!</md-list-item>
         </md-list>
     </div>
-        
-    <div class="card" style="margin-top: 20px; max-height: 475px; overflow-y: scroll;">
+
+    <div class="card queue-card">
         <md-list id="queueList"></md-list>
     </div>
 </div>
 
 <script>
-// ─── Constants ───────────────────────────────────────
 const charMap = {
-    ln:  ["ichika", "saki", "honami", "shiho"],
-    mmj: ["minori", "haruka", "airi", "shizuku"],
-    vbs: ["kohane", "an", "akito", "toya"],
-    wxs: ["tsukasa", "emu", "nene", "rui"],
-    n25: ["kanade", "mafuyu", "ena", "mizuki"],
+    ln:  ["ichika","saki","honami","shiho"],
+    mmj: ["minori","haruka","airi","shizuku"],
+    vbs: ["kohane","an","akito","toya"],
+    wxs: ["tsukasa","emu","nene","rui"],
+    n25: ["kanade","mafuyu","ena","mizuki"],
 };
 
-const PAGE_SIZE = 200; // songs rendered per batch
+const PAGE_SIZE = 200;
 
-// ─── State ───────────────────────────────────────
-let allSongs = []; // full song list, fetched once
-let groupSongs = []; // songs for current group before char filtering
-
-let filteredSongs = [];   // current filtered view
-let renderedCount = 0;    // how many songs are currently in the DOM
+let allSongs = [];
+let groupSongs = [];
+let filteredSongs = [];
+let renderedCount = 0;
 let activeChars = new Set();
 let currentGroup = null;
 let queue = [];
 let currentItem = null;
 let currentSongPath = null;
 
-// ─── DOM refs ───────────────────────────────────────
 const songList      = document.getElementById("songList");
 const queueList     = document.getElementById("queueList");
 const player        = document.getElementById("player");
@@ -272,20 +455,88 @@ const openDialogBtn = document.getElementById("open-dialog-btn");
 const checkboxAll   = document.getElementById("checkbox-all");
 const charDialog    = document.getElementById("charDialog");
 const sentinel      = document.getElementById("loadSentinel");
-const songCard      = document.getElementById("songCard");
 const autoSwitch    = document.getElementById("auto-switch");
+const overlay       = document.getElementById("overlay");
+const sidebarLeft   = document.getElementById("sidebarLeft");
+const sidebarRight  = document.getElementById("sidebarRight");
+const hamburgerBtn  = document.getElementById("hamburgerBtn");
+const queueBtn      = document.getElementById("queueBtn");
 
-// ─── Helper functions ───────────────────────────────────────
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
+// Search popup
+const searchBtn = document.getElementById("searchBtn");
+const searchPopup = document.getElementById("searchPopup");
+const closeSearchBtn = document.getElementById("closeSearchBtn");
+const searchBarPopup = document.getElementById("searchBarPopup");
+
+// ── Search Popup ──────────────────────────────────
+searchBtn.addEventListener("click", () => {
+    searchPopup.style.display = "flex";
+    searchBarPopup.focus();
+});
+
+closeSearchBtn.addEventListener("click", () => {
+    searchPopup.style.display = "none";
+});
+
+// Close on backdrop click
+searchPopup.addEventListener("click", (e) => {
+    if (e.target === searchPopup) searchPopup.style.display = "none";
+});
+
+// Wire popup search bar to the same filter logic
+searchBarPopup.addEventListener("input", debounce(() => {
+    searchBar.value = searchBarPopup.value;
+    applyFilters();
+}, 180));
+
+window.addEventListener("resize", () => {
+    if (window.innerWidth > 600) {
+        searchPopup.style.display = "none";
+        searchBar.style.display = "";      // show main search bar
+        searchBtn.style.display = "none";  // hide search button
+    } else {
+        searchBar.style.display = "none";  // hide main search bar
+        searchBtn.style.display = "";      // show search button
+    }
+});
+
+// ── Drawer helpers ──────────────────────────────────
+function openDrawer(el) {
+    el.classList.add("open");
+    overlay.classList.add("open");
+}
+
+function closeDrawers() {
+    sidebarLeft.classList.remove("open");
+    sidebarRight.classList.remove("open");
+    overlay.classList.remove("open");
+}
+
+hamburgerBtn.addEventListener("click", () => {
+    if (sidebarLeft.classList.contains("open")) closeDrawers();
+    else openDrawer(sidebarLeft);
+});
+
+queueBtn.addEventListener("click", () => {
+    if (sidebarRight.classList.contains("open")) closeDrawers();
+    else openDrawer(sidebarRight);
+});
+
+overlay.addEventListener("click", closeDrawers);
+
+// Close drawers on nav click (mobile)
+document.querySelectorAll("md-list-item[data-href]").forEach(item => {
+    item.addEventListener("click", () => {
+        closeDrawers();
+        history.pushState(null, "", item.getAttribute("data-href"));
+        onNavigate();
+    });
+});
+
+// ── Utilities ──────────────────────────────────────
+function debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
 function playSong(song) {
@@ -295,293 +546,204 @@ function playSong(song) {
     player.play();
     playTitle.textContent = song.split("/").pop().replace(".mp3", "");
     styleCurrentItem();
-    console.log(currentItem);
 }
 
-function styleCurrentItem(){
-    // disable Q button and change color for currently playing song
-    currentItem.setAttribute("disabled", ""); 
+function styleCurrentItem() {
+    if (!currentItem) return;
+    currentItem.setAttribute("disabled", "");
     currentItem.style.color = "#b9aaf0";
     currentItem.style.backgroundColor = "#d6cff5";
 }
 
-// ─── Dialog ───────────────────────────────────────
-openDialogBtn.addEventListener("click", () => {
-    const dialog = document.getElementById("charDialog");
-    dialog.show();
-});
+// ── Dialog ─────────────────────────────────────────
+openDialogBtn.addEventListener("click", () => charDialog.show());
 
-// ─── Sidebar Navigation ───────────────────────────────────────
-// Intercept sidebar clicks — update URL without reloading
-document.querySelectorAll("md-list-item[data-href]").forEach(item => {
-    item.addEventListener("click", () => {
-        const href = item.getAttribute("data-href");
-        history.pushState(null, "", href);
-        onNavigate();
-    });
-});
-
-// Handle browser back/forward
 window.addEventListener("popstate", onNavigate);
- 
+
 function onNavigate() {
     const params = new URLSearchParams(window.location.search);
     currentGroup = params.get("group");
- 
-    // Reset char filter when switching groups
+
     activeChars = new Set();
     const charParam = params.get("chars") || params.get("char");
     if (charParam) charParam.split(",").forEach(c => activeChars.add(c.toLowerCase()));
- 
-    // Highlight active sidebar link
+
     const currentHref = window.location.search || "?view=home";
     document.querySelectorAll("md-list-item[data-href]").forEach(item => {
         item.classList.toggle("nav-active", item.getAttribute("data-href") === currentHref);
     });
- 
-    // Update search bar
-    document.getElementById("searchBar").value = "";
 
-    // hide char filter if no group or no chars for group
-    const charContainer = document.getElementById("charContainer");
-    const btn = document.getElementById("open-dialog-btn");
+    searchBar.value = "";
 
     if (currentGroup === "vs") {
         charContainer.style.display = "none";
-        btn.style.display = "none";
+        openDialogBtn.style.display = "none";
     } else if (!currentGroup || !charMap[currentGroup]?.length) {
         charContainer.style.display = "none";
-        btn.style.display = "flex";
+        openDialogBtn.style.display = "flex";
     } else {
         charContainer.style.display = "flex";
-        btn.style.display = "none";
+        openDialogBtn.style.display = "none";
     }
 
     loadAndRender();
 }
 
-// ─── Fetch song (once) ───────────────────────────────────────
 async function loadAndRender() {
     if (!allSongs.length) {
-        // Show skeleton/loading state while fetching
         songList.innerHTML = "<md-list-item>Loading…</md-list-item>";
-        
         try {
             const res = await fetch("/api/songs");
             allSongs = await res.json();
-        } catch (error) {
-            console.error("Error fetching songs:", error);
+        } catch (e) {
             songList.innerHTML = "<md-list-item>Error loading songs</md-list-item>";
             return;
         }
     }
- 
-    // Filter songs by group
+
     if (currentGroup) {
-        groupSongs = allSongs.filter(song =>
-            song.toLowerCase().startsWith(currentGroup.toLowerCase() + "/")
-        );
+        groupSongs = allSongs.filter(s => s.toLowerCase().startsWith(currentGroup.toLowerCase() + "/"));
     } else {
-        groupSongs = [...allSongs].sort((a, b) => {
-            const nameA = a.split("/").pop().toLowerCase();
-            const nameB = b.split("/").pop().toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
+        groupSongs = [...allSongs].sort((a, b) =>
+            a.split("/").pop().toLowerCase().localeCompare(b.split("/").pop().toLowerCase()));
     }
 
-    // Store on window so applyFilters can always access it
     window._groupSongs = groupSongs;
- 
     renderCharImg();
     applyFilters();
 }
 
-// ─── Character Image ───────────────────────────────────────
 function renderCharImg() {
-    let chars;
+    const chars = (currentGroup && charMap[currentGroup])
+        ? charMap[currentGroup]
+        : [...new Set(Object.values(charMap).flat())];
 
-    if (currentGroup && charMap[currentGroup]) {
-        chars = charMap[currentGroup];
-    } else {
-        chars = [...new Set(Object.values(charMap).flat())];
-    }
- 
-    if (!chars.length) {
-        charContainer.innerHTML = "";
-        return;
-    }
- 
-    charContainer.innerHTML = chars.map(char => {
-        const isActive = activeChars.has(char);
-        return `<img class="charImg ${isActive ? "active" : ""}"
-            src="image/${char}.jpg"
-            data-char="${char}"
-            title="${char}">`;
-    }).join("");
- 
-    charContainer.querySelectorAll(".charImg").forEach(img => {
-        img.addEventListener("click", () => toggleChar(img.dataset.char));
-    });
+    if (!chars.length) { charContainer.innerHTML = ""; return; }
 
-    // all group chars in dialog
-    const dialog = document.getElementById("charDialog");
-    const form = dialog.querySelector("#form-id");
+    const imgHTML = chars.map(char =>
+        `<img class="charImg ${activeChars.has(char) ? "active" : ""}"
+            src="image/${char}.jpg" data-char="${char}" title="${char}">`
+    ).join("");
 
-    form.innerHTML = chars.map(char => {
-        const isActive = activeChars.has(char);
-        return `<img class="charImg ${isActive ? "active" : ""}"
-            src="image/${char}.jpg"
-            data-char="${char}"
-            title="${char}">`;
-    }).join("");
+    charContainer.innerHTML = imgHTML;
+    charContainer.querySelectorAll(".charImg").forEach(img =>
+        img.addEventListener("click", () => toggleChar(img.dataset.char)));
 
-    form.querySelectorAll(".charImg").forEach(img => {
-        img.addEventListener("click", () => toggleChar(img.dataset.char));
-    });
+    const form = document.getElementById("form-id");
+    form.innerHTML = imgHTML;
+    form.querySelectorAll(".charImg").forEach(img =>
+        img.addEventListener("click", () => toggleChar(img.dataset.char)));
 }
 
 function toggleChar(char) {
-    if (activeChars.has(char)) {
-        activeChars.delete(char);
-    } else {
-        activeChars.add(char);
-    }
- 
-    // Update both main and dialog images
-    document.querySelectorAll(".charImg").forEach(img => {
-        img.classList.toggle("active", activeChars.has(img.dataset.char));
-    });
- 
-    // Sync to URL
+    if (activeChars.has(char)) activeChars.delete(char);
+    else activeChars.add(char);
+
+    document.querySelectorAll(".charImg").forEach(img =>
+        img.classList.toggle("active", activeChars.has(img.dataset.char)));
+
     const params = new URLSearchParams(window.location.search);
-    if (activeChars.size > 0) {
-        params.set("chars", [...activeChars].join(","));
-    } else {
-        params.delete("chars");
-    }
+    if (activeChars.size > 0) params.set("chars", [...activeChars].join(","));
+    else params.delete("chars");
     params.delete("char");
     history.replaceState(null, "", "?" + params.toString());
- 
     applyFilters();
 }
 
-// ─── Filtering ───────────────────────────────────────────────────────────────
 checkboxAll.addEventListener("change", applyFilters);
 searchBar.addEventListener("input", debounce(applyFilters, 180));
 
 function applyFilters() {
     let songs = [...(window._groupSongs || [])];
- 
+
     if (activeChars.size > 0) {
         const chars = [...activeChars];
-        const includeAll = document.getElementById("checkbox-all").checked;
+        const includeAll = checkboxAll.checked;
         songs = songs.filter(song => {
             const lower = song.toLowerCase();
             return includeAll
-                ? chars.every(c  => lower.includes("/" + c + "/") || lower.includes(c))
-                : chars.some(c   => lower.includes("/" + c + "/") || lower.includes(c));
+                ? chars.every(c => lower.includes("/" + c + "/") || lower.includes(c))
+                : chars.some(c  => lower.includes("/" + c + "/") || lower.includes(c));
         });
     }
- 
-    const q = document.getElementById("searchBar").value.toLowerCase();
+
+    const q = searchBar.value.toLowerCase();
     if (q) songs = songs.filter(s => s.toLowerCase().includes(q));
- 
+
     filteredSongs = songs;
     renderedCount = 0;
     songList.innerHTML = "";
     songCountEl.textContent = `${songs.length} songs`;
-
     renderNextBatch();
 }
 
-// ─── Incremental rendering ───────────────────────
 function renderNextBatch() {
-    // If we've rendered all songs, do nothing
     const end = Math.min(renderedCount + PAGE_SIZE, filteredSongs.length);
     if (renderedCount >= filteredSongs.length) return;
- 
-    // Create a document fragment to minimize reflows
+
     const frag = document.createDocumentFragment();
- 
-    // Render the next batch of songs
+
     for (let i = renderedCount; i < end; i++) {
         const song = filteredSongs[i];
         const label = song.split("/").pop().replace(".mp3", "");
- 
+
         const item = document.createElement("md-list-item");
         item.textContent = label;
         item.dataset.song = song;
         item.dataset.label = label;
         frag.appendChild(item);
- 
+
         if (i < filteredSongs.length - 1) {
             const divider = document.createElement("md-divider");
             divider.setAttribute("inset", "");
             frag.appendChild(divider);
         }
     }
- 
-    // Append the batch to the DOM and update the rendered count
+
     songList.appendChild(frag);
     renderedCount = end;
 
-    // If the current song is in the newly rendered batch, style it
     if (currentSongPath) {
         const item = songList.querySelector(`md-list-item[data-song="${CSS.escape(currentSongPath)}"]`);
-        if (item) {
-            currentItem = item;
-            styleCurrentItem();
-        }
+        if (item) { currentItem = item; styleCurrentItem(); }
     }
 }
 
-// ─── IntersectionObserver for infinite scroll ───────────
-// Sentinel element at the end of the list to trigger loading more songs
 const io = new IntersectionObserver(entries => {
-    // When the sentinel is visible, render the next batch of songs
     if (entries[0].isIntersecting) renderNextBatch();
-}, { root: songCard, rootMargin: "200px" });
+}, { rootMargin: "200px" });
 io.observe(sentinel);
 
-// ─── Event delegation for song list ────────────
 songList.addEventListener("click", e => {
     const item = e.target.closest("md-list-item");
-    console.log("Clicked item:", item);
     if (!item) return;
- 
+
     const song  = item.dataset.song;
     const label = item.dataset.label;
     if (!song) return;
 
-    // If the "Q" button was clicked
     const btn = e.target.closest("md-filled-button");
     if (btn) {
         if (btn.hasAttribute("disabled")) return;
         queue.push(song);
         btn.setAttribute("disabled", "");
         btn.textContent = queue.length;
- 
-        // Append to queue list — no full re-render
         const qItem = document.createElement("md-list-item");
         qItem.textContent = label;
         queueList.appendChild(qItem);
         return;
     }
 
-    // re-enable previous song's Q button and revert color if exists
     if (currentItem) {
         currentItem.removeAttribute("disabled");
         currentItem.style.color = "";
         currentItem.style.backgroundColor = "";
     }
 
-    // track currently playing item for autoplay
     currentItem = item;
     playSong(song);
 });
 
-// Inject the Q button lazily when items are stamped (MutationObserver)
-// — avoids paying the cost of button creation for off-screen items.
 const qBtnObserver = new MutationObserver(mutations => {
     mutations.forEach(m => {
         m.addedNodes.forEach(node => {
@@ -596,77 +758,54 @@ const qBtnObserver = new MutationObserver(mutations => {
 });
 qBtnObserver.observe(songList, { childList: true });
 
-// ─── Play next on ended ───────────────────────────────────────
 player.addEventListener("ended", () => {
-    // re-enable previous song's Q button and revert color if exists
     if (currentItem) {
         currentItem.removeAttribute("disabled");
         currentItem.style.color = "";
         currentItem.style.backgroundColor = "";
     }
 
-    // Priority 1: play next song from the manual queue
     if (queue.length > 0) {
         const next = queue.shift();
-        currentItem = songList.querySelector(`md-list-item[data-song="${next}"]`);
-        playSong(next);
-        console.log("Playing next from queue:", currentItem.dataset.label);
-    }
-
-    // Priority 2: autoplay — advance to the next song in filteredSongs
-    else if (autoSwitch.selected && currentItem) {
+        currentItem = songList.querySelector(`md-list-item[data-song="${CSS.escape(next)}"]`);
+        if (currentItem) playSong(next);
+    } else if (autoSwitch.selected && currentItem) {
         let next = currentItem.nextElementSibling;
-
-        // skip over <md-divider> elements
-        while (next && next.tagName !== "MD-LIST-ITEM") {
-            next = next.nextElementSibling;
-        }
-
+        while (next && next.tagName !== "MD-LIST-ITEM") next = next.nextElementSibling;
         if (next && next.dataset.song) {
-            currentItem = next; // advance the pointer
-            playSong(next.dataset.song, next.dataset.label);
+            currentItem = next;
+            playSong(next.dataset.song);
             return;
         }
-    }
-
-    else {
+    } else {
         currentItem = null;
         playTitle.textContent = "Play a song!";
     }
 
-    // Re-render queue list
     const frag = document.createDocumentFragment();
-
-    // Also re-enable Q buttons for songs that were just played
     queue.forEach(s => {
         const qi = document.createElement("md-list-item");
         qi.textContent = s.split("/").pop().replace(".mp3", "");
         frag.appendChild(qi);
     });
-
-    // Clear and re-populate the queue list
     queueList.innerHTML = "";
     queueList.appendChild(frag);
 
-    // Re-enable all Q buttons since the first song in the queue has been removed
     document.querySelectorAll("#songList md-list-item").forEach(item => {
         const btn = item.querySelector("md-filled-button");
-        if (btn) {
-            const song = item.dataset.song;
-            if (queue.includes(song)) {
-                btn.setAttribute("disabled", "");
-                btn.textContent = queue.indexOf(song) + 1;
-            } else {
-                btn.removeAttribute("disabled");
-                btn.textContent = "Q";
-            }
+        if (!btn) return;
+        const s = item.dataset.song;
+        if (queue.includes(s)) {
+            btn.setAttribute("disabled", "");
+            btn.textContent = queue.indexOf(s) + 1;
+        } else {
+            btn.removeAttribute("disabled");
+            btn.textContent = "Q";
         }
     });
-    
 });
 
 onNavigate();
 </script>
-
 </body>
 </html>
