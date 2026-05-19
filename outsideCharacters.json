@@ -22,77 +22,77 @@
   {
     "id": 5,
     "seq": 5,
-    "name": "音街ウナ"
+    "name": "Otomachi Una"
   },
   {
     "id": 6,
     "seq": 6,
-    "name": "歌愛ユキ"
+    "name": "Kaai Yuki"
   },
   {
     "id": 7,
     "seq": 7,
-    "name": "ネネロボ"
+    "name": "Robo-Nene"
   },
   {
     "id": 8,
     "seq": 8,
-    "name": "ミクダヨー"
+    "name": "Mikudayo"
   },
   {
     "id": 9,
     "seq": 9,
-    "name": "可不"
+    "name": "KAFU"
   },
   {
     "id": 10,
     "seq": 10,
-    "name": "神威がくぽ"
+    "name": "Camui Gackpo"
   },
   {
     "id": 11,
     "seq": 11,
-    "name": "星界"
+    "name": "SEKAI"
   },
   {
     "id": 12,
     "seq": 12,
-    "name": "東北きりたん"
+    "name": "Tohoku Kiritan"
   },
   {
     "id": 13,
     "seq": 13,
-    "name": "ゲキヤク"
+    "name": "Gekiyaku"
   },
   {
     "id": 14,
     "seq": 14,
-    "name": "「All Music MIKUdemy」一同"
+    "name": "Team MIKUdemy"
   },
   {
     "id": 15,
     "seq": 15,
-    "name": "結月ゆかり"
+    "name": "Yuzuki Yukari"
   },
   {
     "id": 16,
     "seq": 16,
-    "name": "ずんだもん"
+    "name": "Zundamon"
   },
   {
     "id": 17,
     "seq": 17,
-    "name": "足立レイ"
+    "name": "Adachi Rei"
   },
   {
     "id": 18,
     "seq": 18,
-    "name": "裏命"
+    "name": "RIME"
   },
   {
     "id": 19,
     "seq": 19,
-    "name": "花隈千冬"
+    "name": "HANAKUMA CHIFUYU"
   },
   {
     "id": 20,
@@ -107,52 +107,22 @@
   {
     "id": 22,
     "seq": 22,
-    "name": "琴葉茜"
+    "name": "Kotonoha Akane"
   },
   {
     "id": 23,
     "seq": 23,
-    "name": "琴葉葵"
+    "name": "Kotonoha Aoi"
   },
   {
     "id": 24,
     "seq": 24,
-    "name": "重音テト"
-  },
-  {
-    "id": 25,
-    "seq": 25,
-    "name": "Leo\/need"
-  },
-  {
-    "id": 26,
-    "seq": 26,
-    "name": "MORE MORE JUMP！"
-  },
-  {
-    "id": 27,
-    "seq": 27,
-    "name": "Vivid BAD SQUAD"
-  },
-  {
-    "id": 28,
-    "seq": 28,
-    "name": "ワンダーランズ×ショウタイム"
-  },
-  {
-    "id": 29,
-    "seq": 29,
-    "name": "25時、ナイトコードで。"
-  },
-  {
-    "id": 30,
-    "seq": 30,
-    "name": "バーチャル・シンガー"
+    "name": "KASANE TETO"
   },
   {
     "id": 31,
     "seq": 31,
-    "name": "めろう"
+    "name": "Merrow"
   },
   {
     "id": 32,
@@ -162,17 +132,17 @@
   {
     "id": 33,
     "seq": 33,
-    "name": "鳴花ミコト"
+    "name": "MEIKA Mikoto"
   },
   {
     "id": 34,
     "seq": 34,
-    "name": "花奏かのんβ"
+    "name": "Kanade Kanon"
   },
   {
     "id": 35,
     "seq": 35,
-    "name": "DI:Verse（東雲 彰人、青柳 冬弥、天馬 司 、神代 類、漣 ジュン、瀬名 泉、守沢 千秋、逆先 夏目）"
+    "name": "DI:Verse (Akito Shinonome, Toya Aoyagi, Tsukasa Tenma, Rui Kamishiro, Jun Sazanami, Izumi Sena, Chiaki Morisawa, Natsume Sakasaki)"
   },
   {
     "id": 36,
@@ -187,16 +157,16 @@
   {
     "id": 38,
     "seq": 38,
-    "name": "ALLユニット"
+    "name": "All Groups"
   },
   {
     "id": 39,
     "seq": 39,
-    "name": "ALL ORIGINAL ユニット"
+    "name": "All Original Groups"
   },
   {
-    "id": 41,
-    "seq": 41,
-    "name": "夏色花梨"
+    "id": 40,
+    "seq": 40,
+    "name": "AVANNA"
   }
 ]
