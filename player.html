@@ -327,10 +327,10 @@
   .card-bar:nth-child(3) { animation-delay:.3s; }
 
   .card-body { padding: 9px 10px 10px; }
-  .card-title { font-size: .78rem; font-weight: 500; color: var(--text); margin-bottom: 5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-title { font-size: .78rem; font-weight: 500; color: var(--text); margin-bottom: 5px; line-height: 1.3; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .song-card.playing .card-title { color: var(--accent); }
   .card-meta { display: flex; gap: 4px; flex-wrap: wrap; }
-  .card-chars { font-size: .6rem; color: var(--muted); margin-top: 4px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-chars { font-size: .6rem; color: var(--muted); margin-top: 4px; line-height: 1.4; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
   /* ── PLAYER BAR ──────────────────────────────────────── */
   #player-bar {
@@ -552,6 +552,7 @@ const AUDIO_DIR  = 'audio';    // contains unit subfolders
 const AUDIO_EXT  = 'flac';
 const JACKET_DIR = 'jackets';  // jackets/{assetbundleName}.webp
 const JACKET_EXT = 'webp';
+const SKIP_START_SECONDS = 8; // skip the first few seconds of each track (usually silent)
 
 const UNIT_LABELS = {
   light_sound:     'Leo/need',
@@ -891,6 +892,7 @@ const progressEl = document.getElementById('progress');
 let isSeeking    = false;
 
 function playSong(idx) {
+  isFirstLoad = true; 
   if (idx < 0 || idx >= S.songs.length) return;
   S.currentIdx = idx;
   const song = S.songs[idx];
@@ -916,9 +918,16 @@ function playSong(idx) {
   renderSongs();
 }
 
+let isFirstLoad = true;
+
 audioEl.addEventListener('loadedmetadata', () => {
   document.getElementById('time-dur').textContent = fmt(audioEl.duration);
+  if (isFirstLoad && SKIP_START_SECONDS > 0 && audioEl.duration > SKIP_START_SECONDS) {
+    audioEl.currentTime = SKIP_START_SECONDS;
+    isFirstLoad = false;
+  }
 });
+
 audioEl.addEventListener('timeupdate', () => {
   if (!audioEl.duration || isSeeking) return;
   progressEl.value = Math.round((audioEl.currentTime / audioEl.duration) * 1000);
@@ -928,15 +937,21 @@ audioEl.addEventListener('ended', playNext);
 audioEl.addEventListener('play',  () => { document.getElementById('btn-play').innerHTML = '&#9646;&#9646;'; });
 audioEl.addEventListener('pause', () => { document.getElementById('btn-play').innerHTML = '&#9654;'; });
 
-progressEl.addEventListener('mousedown',  () => { isSeeking = true; });
-progressEl.addEventListener('touchstart', () => { isSeeking = true; }, { passive: true });
+progressEl.addEventListener('pointerdown', () => { isSeeking = true; });
 progressEl.addEventListener('input', () => {
   if (audioEl.duration) document.getElementById('time-cur').textContent = fmt((progressEl.value / 1000) * audioEl.duration);
 });
-progressEl.addEventListener('mouseup',  commitSeek);
-progressEl.addEventListener('touchend', commitSeek);
-progressEl.addEventListener('change',   commitSeek);
-function commitSeek() { isSeeking = false; if (audioEl.duration) audioEl.currentTime = (progressEl.value / 1000) * audioEl.duration; }
+document.addEventListener('pointerup', commitSeek);
+
+function commitSeek() {
+  if (!isSeeking) return;
+  isSeeking = false;
+  const target = (progressEl.value / 1000) * audioEl.duration;
+  console.log('seeking to:', target);
+  audioEl.currentTime = target;
+  console.log('currentTime after set:', audioEl.currentTime);
+  setTimeout(() => console.log('currentTime 100ms later:', audioEl.currentTime), 100);
+}
 
 document.getElementById('btn-play').addEventListener('click', () => {
   if (S.currentIdx === -1 && S.songs.length) { playSong(0); return; }
