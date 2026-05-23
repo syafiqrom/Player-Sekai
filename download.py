@@ -2,6 +2,7 @@ import json
 import os
 import requests
 from mutagen.flac import FLAC
+from pathlib import Path
 
 # --- Load all JSON data once upfront ---
 with open("musicVocals.json", "r", encoding="utf-8") as f:
@@ -79,6 +80,11 @@ for item in music_vocals:
     assetbundle_name = item["assetbundleName"]
     caption = item.get("caption", "")
 
+    # Skip if music file already exists in any child folder
+    if next(Path("audio").rglob(f"{assetbundle_name}.flac"), None):
+        print(f"[{assetbundle_name}] File already exists, skipping download.")
+        continue
+
     flac_url = f"https://storage.sekai.best/sekai-jp-assets/music/long/{assetbundle_name}/{assetbundle_name}.flac"
 
     # Resolve song title
@@ -106,6 +112,12 @@ for item in music_list:
     
     # Download jacket
     jacket_dest = os.path.join("jackets", f"jacket_s_{music_id:03d}.webp")
+
+    # Skip if jacket already exists
+    if next(Path("jackets").rglob(f"{assetbundle_name}.webp"), None):
+        print(f"[{assetbundle_name}] File already exists, skipping download.")
+        continue
+
     if download_file(jacket_url, jacket_dest):
         print(f"  ✓ Jacket saved: {jacket_dest}")
     

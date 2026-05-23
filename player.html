@@ -574,6 +574,20 @@ const S = {
   currentIdx: -1, shuffle: false, shuffleOrder: [],
 };
 
+// Restore saved preferences
+const savedTheme  = localStorage.getItem('theme');
+const savedAccent = localStorage.getItem('accent');
+
+if (savedTheme)  document.body.dataset.theme  = savedTheme;
+if (savedAccent) {
+  document.body.dataset.accent = savedAccent;
+  document.querySelector(`.swatch[data-v="${savedAccent}"]`)?.classList.add('active');
+  document.querySelector('.swatch:not([data-v="' + savedAccent + '"])') // fix the default "active" on rose swatch
+  document.querySelectorAll('.swatch').forEach(s =>
+    s.classList.toggle('active', s.dataset.v === savedAccent)
+  );
+}
+
 // ── BOOT ───────────────────────────────────────────────────────────────────
 async function boot() {
   try {
@@ -981,7 +995,9 @@ function playNext() {
 
 // ── THEME ──────────────────────────────────────────────────────────────────
 document.getElementById('theme-toggle').addEventListener('click', () => {
-  document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+  const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.body.dataset.theme = next;
+  localStorage.setItem('theme', next);
 });
 document.getElementById('palette-btn').addEventListener('click', e => {
   e.stopPropagation(); document.getElementById('theme-panel').classList.toggle('open');
@@ -990,7 +1006,9 @@ document.addEventListener('click', () => document.getElementById('theme-panel').
 document.getElementById('theme-panel').addEventListener('click', e => e.stopPropagation());
 document.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', () => {
   document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
-  sw.classList.add('active'); document.body.dataset.accent = sw.dataset.v;
+  sw.classList.add('active'); 
+  document.body.dataset.accent = sw.dataset.v;
+  localStorage.setItem('accent', sw.dataset.v);
 }));
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
