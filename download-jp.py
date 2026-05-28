@@ -77,6 +77,23 @@ def tag_flac(path: str, title: str, artists: list[str]) -> None:
     except Exception as e:
         print(f"  [WARN] Failed to tag {path}: {e}")
 
+# --- Download loop for jacket images ---
+for item in music_list:
+    music_id = item["id"]
+    assetbundle_name = item["assetbundleName"]
+
+    jacket_url = f"https://storage.sekai.best/sekai-en-assets/music/jacket/jacket_s_{assetbundle_name}/jacket_s_{assetbundle_name}.webp"
+    
+    # Download jacket
+    jacket_dest = os.path.join("jackets", f"jacket_s_{music_id:03d}.webp")
+
+    # Skip if jacket already exists
+    if next(Path("jackets").rglob(f"{assetbundle_name}.webp"), None):
+        print(f"[{assetbundle_name}] File already exists, skipping download.")
+        continue
+
+    if download_file(jacket_url, jacket_dest):
+        print(f"  ✓ Jacket saved: {jacket_dest}")
 
 # --- Download loop for audio files ---
 for item in music_vocals:
@@ -108,23 +125,11 @@ for item in music_vocals:
     flac_dest = os.path.join("audio", f"{assetbundle_name}.flac")
     if download_file(flac_url, flac_dest):
         tag_flac(flac_dest, title, artist_names)
+        # embed jacket
+        process(
+            audio_dir=Path("audio"),
+            jackets_dir=Path("jackets"),
+            dry_run=False
+        )
         print(f"  ✓ FLAC saved & tagged: {flac_dest}")
-
-# --- Download loop for jacket images ---
-for item in music_list:
-    music_id = item["id"]
-    assetbundle_name = item["assetbundleName"]
-
-    jacket_url = f"https://storage.sekai.best/sekai-en-assets/music/jacket/jacket_s_{assetbundle_name}/jacket_s_{assetbundle_name}.webp"
-    
-    # Download jacket
-    jacket_dest = os.path.join("jackets", f"jacket_s_{music_id:03d}.webp")
-
-    # Skip if jacket already exists
-    if next(Path("jackets").rglob(f"{assetbundle_name}.webp"), None):
-        print(f"[{assetbundle_name}] File already exists, skipping download.")
-        continue
-
-    if download_file(jacket_url, jacket_dest):
-        print(f"  ✓ Jacket saved: {jacket_dest}")
     

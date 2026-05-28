@@ -20,7 +20,9 @@ from pathlib import Path
 
 AUDIO_DIR = Path("audio")
 GAME_CHARACTERS_FILE = Path("gameCharacters.json")
-MUSIC_VOCALS_FILE = Path("musicVocals.json")
+
+# change depending region
+MUSIC_VOCALS_FILE = Path("musicVocals-jp.json")
 
 # Load data
 with open(GAME_CHARACTERS_FILE, encoding="utf-8") as f:
