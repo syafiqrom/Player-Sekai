@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 import re
 
-AUDIO_FOLDER = "audio - Copy"
+AUDIO_FOLDER = "audio"
 
 def sanitize_filename(name):
     # Remove invalid filename characters

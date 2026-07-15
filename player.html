@@ -696,7 +696,7 @@ function sortAndFilter() {
   S.filtered = list;
 }
 
-function refresh() { sortAndFilter(); renderSongs(); }
+function refresh() { sortAndFilter(); if (S.shuffle) buildShuffleOrder(); renderSongs(); }
 
 // ── SIDEBAR ────────────────────────────────────────────────────────────────
 function renderSidebarUnits() {
@@ -904,9 +904,10 @@ function renderGrid(list, el) {
 const audioEl    = document.getElementById('audio-el');
 const progressEl = document.getElementById('progress');
 let isSeeking    = false;
+let isFirstLoad  = true;
 
 function playSong(idx) {
-  isFirstLoad = true; 
+  isFirstLoad = true;
   if (idx < 0 || idx >= S.songs.length) return;
   S.currentIdx = idx;
   const song = S.songs[idx];
@@ -931,8 +932,6 @@ function playSong(idx) {
   document.getElementById('player-bar').classList.remove('hidden');
   renderSongs();
 }
-
-let isFirstLoad = true;
 
 audioEl.addEventListener('loadedmetadata', () => {
   document.getElementById('time-dur').textContent = fmt(audioEl.duration);
@@ -961,10 +960,7 @@ function commitSeek() {
   if (!isSeeking) return;
   isSeeking = false;
   const target = (progressEl.value / 1000) * audioEl.duration;
-  console.log('seeking to:', target);
   audioEl.currentTime = target;
-  console.log('currentTime after set:', audioEl.currentTime);
-  setTimeout(() => console.log('currentTime 100ms later:', audioEl.currentTime), 100);
 }
 
 document.getElementById('btn-play').addEventListener('click', () => {
@@ -984,13 +980,24 @@ document.getElementById('btn-shuffle').addEventListener('click', () => {
 document.getElementById('volume').addEventListener('input', e => { audioEl.volume = e.target.value; });
 
 function buildShuffleOrder() {
-  const arr = S.songs.map((_,i) => i);
+  // Shuffle indices into S.filtered so shuffle respects active filters
+  const arr = S.filtered.map((_,i) => i);
   for (let i = arr.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
   S.shuffleOrder = arr;
 }
 function playNext() {
-  if (S.shuffle) { if (!S.shuffleOrder.length) buildShuffleOrder(); playSong(S.shuffleOrder.pop()); }
-  else playSong((S.currentIdx + 1) % S.songs.length);
+  if (S.shuffle) {
+    if (!S.shuffleOrder.length) buildShuffleOrder();
+    const filteredIdx = S.shuffleOrder.pop();
+    const song = S.filtered[filteredIdx];
+    if (song) { const idx = S.songs.findIndex(s => s.id === song.id); if (idx !== -1) playSong(idx); }
+  } else {
+    // Advance within filtered list, then look up the global index
+    const curId = S.currentIdx !== -1 ? S.songs[S.currentIdx]?.id : null;
+    const filteredIdx = S.filtered.findIndex(s => s.id === curId);
+    const nextFiltered = S.filtered[(filteredIdx + 1) % S.filtered.length];
+    if (nextFiltered) { const idx = S.songs.findIndex(s => s.id === nextFiltered.id); if (idx !== -1) playSong(idx); }
+  }
 }
 
 // ── THEME ──────────────────────────────────────────────────────────────────

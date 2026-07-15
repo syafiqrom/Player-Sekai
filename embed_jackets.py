@@ -17,7 +17,6 @@ Usage:
 import argparse
 import io
 import re
-import sys
 from pathlib import Path
 
 from PIL import Image
@@ -28,36 +27,27 @@ from mutagen.id3 import PictureType
 # ---------------------------------------------------------------------------
 # Patterns
 # ---------------------------------------------------------------------------
-FLAC_PATTERN = re.compile(r"(?:[A-Za-z]+_)?(\d{4})_\d{2}$", re.IGNORECASE)
-WEBP_PATTERN = re.compile(r"jacket_s_(\d+)$", re.IGNORECASE)
+# FLAC files are named {assetbundleName}.flac (e.g. "light_sound_0001_01.flac")
+# Jacket files are named {assetbundleName}.webp (e.g. "light_sound_0001.webp")
+# We match by stripping the last "_NN" vocal-variant suffix from the FLAC stem
+# to get the shared assetbundleName prefix used by the jacket.
+FLAC_VOCAL_SUFFIX = re.compile(r"_\d{2}$")
 
 
-def music_id_from_flac(stem: str) -> str | None:
-    m = FLAC_PATTERN.match(stem)
-    return m.group(1) if m else None
-
-
-def music_id_from_webp(stem: str) -> str | None:
-    m = WEBP_PATTERN.match(stem)
-    return m.group(1) if m else None
-
-
-def normalise_id(raw: str) -> int:
-    return int(raw)
+def jacket_key_from_flac(stem: str) -> str:
+    """Strip the trailing vocal-variant suffix (e.g. _01) to get the jacket stem."""
+    return FLAC_VOCAL_SUFFIX.sub("", stem)
 
 
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
 
-def build_jacket_map(jackets_dir: Path) -> dict[int, Path]:
-    mapping: dict[int, Path] = {}
+def build_jacket_map(jackets_dir: Path) -> dict[str, Path]:
+    """Map assetbundleName stem -> jacket Path for every .webp in jackets_dir."""
+    mapping: dict[str, Path] = {}
     for p in jackets_dir.glob("*.webp"):
-        raw = music_id_from_webp(p.stem)
-        if raw is not None:
-            mapping[normalise_id(raw)] = p
-        else:
-            print(f"  [SKIP]  Unrecognised jacket filename: {p.name}")
+        mapping[p.stem] = p
     return mapping
 
 
@@ -93,30 +83,27 @@ def embed_cover(flac_path: Path, image_path: Path, dry_run: bool) -> None:
 
 def process(audio_dir: Path, jackets_dir: Path, dry_run: bool) -> None:
     if not audio_dir.is_dir():
-        sys.exit(f"ERROR: audio directory not found: {audio_dir}")
+        raise FileNotFoundError(f"audio directory not found: {audio_dir}")
     if not jackets_dir.is_dir():
-        sys.exit(f"ERROR: jackets directory not found: {jackets_dir}")
+        raise FileNotFoundError(f"jackets directory not found: {jackets_dir}")
 
     jacket_map = build_jacket_map(jackets_dir)
     if not jacket_map:
-        sys.exit("ERROR: No jacket images found (expected jacket_s_NNN.webp)")
+        raise FileNotFoundError("No jacket images found (expected {assetbundleName}.webp)")
 
     print(f"Found {len(jacket_map)} jacket image(s) in '{jackets_dir}'.\n")
 
     matched = unmatched = skipped = 0
 
     for flac_path in sorted(audio_dir.rglob("*.flac")):
-        raw_id = music_id_from_flac(flac_path.stem)
-        if raw_id is None:
-            print(f"  [SKIP]  Unrecognised FLAC filename: {flac_path.name}")
-            skipped += 1
-            continue
-
-        mid = normalise_id(raw_id)
-        jacket = jacket_map.get(mid)
+        key = jacket_key_from_flac(flac_path.stem)
+        jacket = jacket_map.get(key)
+        if jacket is None:
+            # Fallback: try the full stem (no suffix to strip)
+            jacket = jacket_map.get(flac_path.stem)
 
         if jacket is None:
-            print(f"  [MISS]  No jacket for music ID {mid:04d}  ({flac_path.name})")
+            print(f"  [MISS]  No jacket for '{key}'  ({flac_path.name})")
             with open("log-jacket.txt", "a", encoding="utf-8") as log_file:
                 log_file.write(f"{flac_path.name}\n")
             unmatched += 1
@@ -141,11 +128,15 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen without modifying any files")
     args = parser.parse_args()
 
-    process(
-        audio_dir   = Path(args.audio),
-        jackets_dir = Path(args.jackets),
-        dry_run     = args.dry_run,
-    )
+    try:
+        process(
+            audio_dir   = Path(args.audio),
+            jackets_dir = Path(args.jackets),
+            dry_run     = args.dry_run,
+        )
+    except FileNotFoundError as e:
+        import sys
+        sys.exit(f"ERROR: {e}")
 
 
 if __name__ == "__main__":

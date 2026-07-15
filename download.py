@@ -80,9 +80,9 @@ for item in music_list:
     assetbundle_name = item["assetbundleName"]
 
     jacket_url = f"https://storage.sekai.best/sekai-en-assets/music/jacket/jacket_s_{assetbundle_name}/jacket_s_{assetbundle_name}.webp"
-    
-    # Download jacket
-    jacket_dest = os.path.join("jackets", f"jacket_s_{music_id:03d}.webp")
+
+    # Download jacket — filename must match assetbundleName so player.html and embed_jackets.py can find it
+    jacket_dest = os.path.join("jackets", f"{assetbundle_name}.webp")
 
     # Skip if jacket already exists
     if next(Path("jackets").rglob(f"{assetbundle_name}.webp"), None):
