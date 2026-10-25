@@ -234,6 +234,9 @@
   .unit-theme_park     { --u:#d09040; }
   .unit-piapro         { --u:#8a8479; }
   .unit-mix            { --u:#9a70b0; }
+  .tag.jp-tag { background: color-mix(in srgb, #e8a020 13%, var(--tag-bg)); color: #b87800; font-size: .55rem; }
+  .tag.en-tag { background: color-mix(in srgb, #4080d0 13%, var(--tag-bg)); color: #2060b0; font-size: .55rem; }
+  [data-theme="dark"] .tag.en-tag { color: #6aa0e8; }
   .tag.unit { background: color-mix(in srgb, var(--u,var(--accent)) 13%, var(--tag-bg)); color: var(--u,var(--accent)); }
 
   /* ── LIST VIEW ───────────────────────────────────────── */
@@ -386,6 +389,20 @@
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 8px; color: var(--muted); font-size: .77rem; }
   .empty .icon { font-size: 2rem; }
+
+  /* ── TOAST ───────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(12px);
+    background: #3a1a1a; color: #f5c0be; border: 1px solid #7a3030;
+    padding: 9px 16px; border-radius: 8px; font-size: .74rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 999;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    white-space: nowrap;
+  }
+  #toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body data-theme="light" data-accent="rose">
@@ -538,21 +555,35 @@
   </div>
 </div>
 
+<div id="toast"></div>
 <audio id="audio-el"></audio>
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────────────────
-const JSON_FILES = {
-  musics:            'musics.json',
-  musicVocals:       'musicVocals.json',
-  gameCharacters:    'gameCharacters.json',
-  outsideCharacters: 'outsideCharacters.json',
-};
-const AUDIO_DIR  = 'audio';    // contains unit subfolders
-const AUDIO_EXT  = 'flac';
-const JACKET_DIR = 'jackets';  // jackets/{assetbundleName}.webp
-const JACKET_EXT = 'webp';
+const BASE_EN  = 'https://sekai-world.github.io/sekai-master-db-en-diff';
+const BASE_JP  = 'https://sekai-world.github.io/sekai-master-db-diff';
+
+const CDN_EN   = 'https://storage.sekai.best/sekai-en-assets';
+const CDN_JP   = 'https://storage.sekai.best/sekai-jp-assets';
+
+const DB_FILES = [
+  'musics', 'musicVocals', 'musicOriginals', 'musicTags',
+  'gameCharacters', 'outsideCharacters', 'musicDanceMembers',
+];
+
 const SKIP_START_SECONDS = 8; // skip the first few seconds of each track (usually silent)
+
+// assetbundleName from musics.json is already the full name, e.g. "jacket_s_001"
+// Jacket: try JP CDN first; EN CDN as fallback via onerror
+function jacketUrlJP(assetbundleName) {
+  return `${CDN_JP}/music/jacket/${assetbundleName}/${assetbundleName}.webp`;
+}
+function jacketUrlEN(assetbundleName) {
+  return `${CDN_EN}/music/jacket/${assetbundleName}/${assetbundleName}.webp`;
+}
+// Audio uses the vocal's assetbundleName (different from the music's jacket name)
+function flacUrlJP(name) { return `${CDN_JP}/music/long/${name}/${name}.flac`; }
+function flacUrlEN(name) { return `${CDN_EN}/music/long/${name}/${name}.flac`; }
 
 const UNIT_LABELS = {
   light_sound:     'Leo/need',
@@ -589,24 +620,91 @@ if (savedAccent) {
 }
 
 // ── BOOT ───────────────────────────────────────────────────────────────────
+async function fetchDB(file) {
+  // Fetch EN and JP separately; keep them separate — EN is the source of truth for display text
+  const [enRes, jpRes] = await Promise.all([
+    fetch(`${BASE_EN}/${file}.json`),
+    fetch(`${BASE_JP}/${file}.json`),
+  ]);
+  if (!enRes.ok) throw new Error(`Failed to load EN ${file}.json — ${enRes.status}`);
+  if (!jpRes.ok) throw new Error(`Failed to load JP ${file}.json — ${jpRes.status}`);
+  const [enData, jpData] = await Promise.all([enRes.json(), jpRes.json()]);
+
+  const enIds = new Set(enData.map(e => e.id));
+  const jpIds = new Set(jpData.map(e => e.id));
+  // JP-only: entries that exist in JP but not EN
+  const jpOnly = jpData.filter(e => !enIds.has(e.id));
+  // EN-only: entries that exist in EN but not JP
+  const enOnly = enData.filter(e => !jpIds.has(e.id));
+  // Both: entries present in both (use EN data for display text)
+  const both   = enData.filter(e => jpIds.has(e.id));
+
+  return {
+    en:         enData,                       // EN entries only (display text source)
+    jp:         jpData,                       // JP entries only
+    merged:     [...enData, ...jpOnly],       // All entries; JP-only appended; EN used for shared ones
+    jpOnlyIds:  new Set(jpOnly.map(e => e.id)),
+    enOnlyIds:  new Set(enOnly.map(e => e.id)),
+    bothIds:    new Set(both.map(e => e.id)), // exists in both CDNs
+  };
+}
+
 async function boot() {
   try {
-    const [musics, vocalsRaw, gameCharsRaw, outsideCharsRaw] = await Promise.all(
-      Object.values(JSON_FILES).map(path =>
-        fetch(path).then(r => {
-          if (!r.ok) throw new Error(`Failed to load "${path}" — ${r.status} ${r.statusText}`);
-          return r.json();
-        })
-      )
-    );
+    setSplash('Fetching data from sekai-world…');
 
-    const charMap        = Object.fromEntries(gameCharsRaw.map(c => [c.id, c]));
-    const outsideCharMap = Object.fromEntries(outsideCharsRaw.map(c => [c.id, c]));
-    const vocalsMap      = {};
-    vocalsRaw.forEach(v => { (vocalsMap[v.musicId] ??= []).push(v); });
+    const [
+      musicsDB, vocalsDB, originalsDB, tagsDB,
+      gameCharsDB, outsideCharsDB, danceMembersDB,
+    ] = await Promise.all(DB_FILES.map(f => fetchDB(f)));
 
-    musics.forEach(m => {
+    setSplash('Building song library…');
+
+    const jpMusicIds     = musicsDB.jpOnlyIds;
+    const jpVocalIds     = vocalsDB.jpOnlyIds;
+    const enMusicIds     = musicsDB.enOnlyIds;
+    const enVocalIds     = vocalsDB.enOnlyIds;
+    const bothMusicIds   = musicsDB.bothIds;
+    const bothVocalIds   = vocalsDB.bothIds;
+
+    // Use EN data for display text; fall back to JP entry for JP-only items
+    const charMap        = Object.fromEntries(gameCharsDB.merged.map(c => [c.id, c]));
+    const outsideCharMap = Object.fromEntries(outsideCharsDB.merged.map(c => [c.id, c]));
+
+    // Build vocals map from merged (EN entries + JP-only entries)
+    const vocalsMap = {};
+    vocalsDB.merged.forEach(v => { (vocalsMap[v.musicId] ??= []).push(v); });
+
+    musicsDB.merged.forEach(m => {
+      const musicIsJP    = jpMusicIds.has(m.id);
+      const musicInBoth  = bothMusicIds.has(m.id);
+
       (vocalsMap[m.id] || []).forEach(v => {
+        const vocalIsJP   = jpVocalIds.has(v.id);
+        const vocalInBoth = bothVocalIds.has(v.id);
+
+        const isJP = musicIsJP || vocalIsJP;   // true = JP-only (no EN equivalent)
+        const isEN = enMusicIds.has(m.id) || enVocalIds.has(v.id); // true = EN-only
+
+        // Audio URL strategy:
+        //   - exists in both  → try JP first, fall back to EN
+        //   - JP-only         → JP only (no EN fallback)
+        //   - EN-only         → EN only (no JP to try)
+        const audioSrcPrimary   = (musicInBoth || vocalInBoth || !isJP) && !isEN
+                                  ? flacUrlJP(v.assetbundleName)   // both: JP first
+                                  : isJP
+                                  ? flacUrlJP(v.assetbundleName)   // JP-only
+                                  : flacUrlEN(v.assetbundleName);  // EN-only
+        const audioSrcFallback  = (musicInBoth || vocalInBoth) && !isJP && !isEN
+                                  ? flacUrlEN(v.assetbundleName)   // both: EN fallback
+                                  : isEN
+                                  ? null                            // EN-only: no JP fallback
+                                  : null;                           // JP-only: no EN fallback
+
+        // Jacket: try JP first for all songs; EN as fallback
+        const jacketSrc      = jacketUrlJP(m.assetbundleName);
+        const jacketFallback = jacketUrlEN(m.assetbundleName);
+
         const gc = (v.characters || [])
           .filter(c => c.characterType === 'game_character')
           .map(c => charMap[c.characterId]).filter(Boolean);
@@ -614,8 +712,9 @@ async function boot() {
           .filter(c => c.characterType === 'outside_character')
           .map(c => outsideCharMap[c.characterId]).filter(Boolean);
 
+        // Always use EN character name data (charMap built from merged = EN preferred)
         const charNames = [
-          ...gc.map(c => `${c.firstName} ${c.givenName}`),
+          ...gc.map(c => `${c.firstName} ${c.givenName}`.trim()),
           ...oc.map(c => c.name),
         ];
 
@@ -626,15 +725,19 @@ async function boot() {
                      : 'mix';
 
         S.songs.push({
-          id:              `${m.id}_${v.id}`,
-          musicId:         m.id,
-          title:           m.title,
-          caption:         v.caption || '',
-          jacketSrc:       `${JACKET_DIR}/${m.assetbundleName}.${JACKET_EXT}`,
+          id:                `${m.id}_${v.id}`,
+          musicId:           m.id,
+          title:             m.title,           // always EN text
+          caption:           v.caption || '',   // always EN text
+          jacketSrc,
+          jacketFallback,
           folder,
-          audioSrc:        `${AUDIO_DIR}/${folder}/${v.assetbundleName}.${AUDIO_EXT}`,
+          audioSrc:          audioSrcPrimary,
+          audioSrcFallback,
           charNames,
-          releasedAt:      m.releasedAt || m.publishedAt || 0,
+          releasedAt:        m.releasedAt || m.publishedAt || 0,
+          isJP,
+          isEN,
         });
       });
     });
@@ -652,10 +755,13 @@ async function boot() {
     splash.querySelector('h2').textContent = 'Could not load library';
     document.getElementById('splash-msg').innerHTML =
       `<strong>${esc(err.message)}</strong><br><br>
-       Serve over HTTP, not <code>file://</code>.<br>
-       Run <code>python -m http.server</code> in the project folder,<br>
-       then open <code>http://localhost:8000/player.html</code>`;
+       Make sure you have an internet connection — data is fetched live from sekai-world GitHub and storage.sekai.best.`;
   }
+}
+
+function setSplash(msg) {
+  const el = document.getElementById('splash-msg');
+  if (el) el.textContent = msg;
 }
 
 // ── SORT & FILTER ──────────────────────────────────────────────────────────
@@ -831,8 +937,11 @@ function renderList(list, el) {
     const playing  = s.id === currentId;
     const unitTag  = `<span class="tag unit unit-${s.folder}">${esc(unitLabel(s.folder))}</span>`;
     const capTag   = s.caption ? `<span class="tag">${esc(s.caption)}</span>` : '';
+    const jpTag    = s.isJP ? `<span class="tag jp-tag">JP</span>` : '';
+    const enTag    = s.isEN ? `<span class="tag en-tag">EN</span>` : '';
     const charTags = s.charNames.slice(0,4).map(n => `<span class="tag">${esc(n)}</span>`).join('');
-    const jacket   = `<img class="row-jacket" src="${esc(s.jacketSrc)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    const jacket   = `<img class="row-jacket" src="${esc(s.jacketSrc)}" alt="" loading="lazy"
+                        onerror="if(this.src!=='${esc(s.jacketFallback)}'){this.src='${esc(s.jacketFallback)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}">
                       <div class="row-jacket-placeholder" style="display:none">🎵</div>`;
     return `<div class="song-row${playing?' playing':''}" data-id="${s.id}">
       <div class="song-num">
@@ -846,7 +955,7 @@ function renderList(list, el) {
       ${jacket}
       <div class="song-info">
         <div class="song-title">${esc(s.title)}</div>
-        <div class="song-meta">${unitTag}${capTag}${charTags}</div>
+        <div class="song-meta">${unitTag}${capTag}${jpTag}${enTag}${charTags}</div>
       </div>
     </div>`;
   }).join('');
@@ -867,11 +976,13 @@ function renderGrid(list, el) {
     const playing  = s.id === currentId;
     const unitTag  = `<span class="tag unit unit-${s.folder}">${esc(unitLabel(s.folder))}</span>`;
     const capTag   = s.caption ? `<span class="tag">${esc(s.caption)}</span>` : '';
+    const jpTag    = s.isJP ? `<span class="tag jp-tag">JP</span>` : '';
+    const enTag    = s.isEN ? `<span class="tag en-tag">EN</span>` : '';
     const chars    = s.charNames.join(', ');
     return `<div class="song-card${playing?' playing':''}" data-id="${s.id}">
       <div class="card-jacket-wrap">
         <img class="card-jacket" src="${esc(s.jacketSrc)}" alt="" loading="lazy"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             onerror="if(this.src!=='${esc(s.jacketFallback)}'){this.src='${esc(s.jacketFallback)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}">
         <div class="card-jacket-placeholder" style="display:none">🎵</div>
         <div class="card-play-overlay">
           <div class="card-play-icon">
@@ -886,7 +997,7 @@ function renderGrid(list, el) {
       </div>
       <div class="card-body">
         <div class="card-title">${esc(s.title)}</div>
-        <div class="card-meta">${unitTag}${capTag}</div>
+        <div class="card-meta">${unitTag}${capTag}${jpTag}${enTag}</div>
         ${chars ? `<div class="card-chars">${esc(chars)}</div>` : ''}
       </div>
     </div>`;
@@ -906,14 +1017,43 @@ const progressEl = document.getElementById('progress');
 let isSeeking    = false;
 let isFirstLoad  = true;
 
+let _audioErrorHandler = null;
+
 function playSong(idx) {
   isFirstLoad = true;
   if (idx < 0 || idx >= S.songs.length) return;
   S.currentIdx = idx;
   const song = S.songs[idx];
+
+  // Remove any previous error handler before setting new src
+  if (_audioErrorHandler) {
+    audioEl.removeEventListener('error', _audioErrorHandler);
+    _audioErrorHandler = null;
+  }
+
+  console.log('[sekaiplayer] Fetching audio (primary):', song.audioSrc);
   audioEl.src = song.audioSrc;
   audioEl.volume = parseFloat(document.getElementById('volume').value);
   progressEl.value = 0;
+
+  // Set up fallback chain
+  let triedFallback = false;
+  _audioErrorHandler = function onAudioError() {
+    if (!triedFallback && song.audioSrcFallback) {
+      triedFallback = true;
+      console.log('[sekaiplayer] Primary failed, trying fallback:', song.audioSrcFallback);
+      audioEl.src = song.audioSrcFallback;
+      audioEl.load();
+      audioEl.play().catch(() => {});
+    } else {
+      audioEl.removeEventListener('error', _audioErrorHandler);
+      _audioErrorHandler = null;
+      console.warn('[sekaiplayer] Audio unavailable for:', song.title);
+      showToast(`⚠ Audio unavailable: "${song.title}"`);
+    }
+  };
+  audioEl.addEventListener('error', _audioErrorHandler);
+
   audioEl.play().catch(() => {});
 
   // Update now-playing bar
@@ -927,7 +1067,15 @@ function playSong(idx) {
   npJacket.src = song.jacketSrc;
   npJacket.style.display = '';
   npJacketPh.style.display = 'none';
-  npJacket.onerror = () => { npJacket.style.display = 'none'; npJacketPh.style.display = ''; };
+  npJacket.onerror = () => {
+    // jacketSrc is JP; jacketFallback is EN
+    if (npJacket.src !== song.jacketFallback) {
+      npJacket.src = song.jacketFallback;
+    } else {
+      npJacket.style.display = 'none';
+      npJacketPh.style.display = '';
+    }
+  };
 
   document.getElementById('player-bar').classList.remove('hidden');
   renderSongs();
@@ -1021,6 +1169,18 @@ document.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', 
 // ── HELPERS ────────────────────────────────────────────────────────────────
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let _toastTimer = null;
+function showToast(msg, durationMs = 4000) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+    _toastTimer = null;
+  }, durationMs);
+}
 
 boot();
 </script>

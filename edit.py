@@ -1,6 +1,7 @@
 """
 Resumes Spotify scraping from where it left off.
 - Skips any entry that already has a non-null spotifyLink
+- Looks up missing titles from musics.json using musicId
 - Saves musicOriginals2.json after EVERY fetch (incremental — safe to Ctrl+C)
 - Re-run anytime to continue from where it stopped
 
@@ -21,9 +22,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-FILE          = "musicOriginals2.json"  # reads AND writes the same file
+FILE          = "musicOriginals.json"
+MUSICS_FILE   = "musics.json"
 DELAY_SECONDS = 2.0
-HEADLESS      = False   # keep False — Spotify is less likely to block visible browser
+HEADLESS      = False
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -86,8 +88,31 @@ def main():
     with open(FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Only process entries with no link yet (null) that have a title
-    pending = [e for e in data if e.get("title") and e.get("spotifyLink") is None]
+    with open(MUSICS_FILE, "r", encoding="utf-8") as f:
+        musics = json.load(f)
+
+    # Build a lookup: musicId -> title from musics.json
+    title_lookup = {e["id"]: e["title"] for e in musics if e.get("id") and e.get("title")}
+
+    # Patch missing titles into data entries before filtering
+    no_title = []
+    for entry in data:
+        if not entry.get("title"):
+            looked_up = title_lookup.get(entry.get("musicId"))
+            if looked_up:
+                entry["title"] = looked_up
+                print(f"  Patched title for musicId={entry['musicId']}: {looked_up!r}")
+            else:
+                no_title.append(entry["musicId"])
+
+    if no_title:
+        print(f"\nWarning: {len(no_title)} entries have no title even after lookup: musicIds={no_title}")
+        print("These will be skipped.\n")
+
+    # Save patched titles back to file
+    save(data)
+
+    pending = [e for e in data if e.get("title") and not e.get("spotifyLink")]
     total_pending = len(pending)
 
     if total_pending == 0:
@@ -96,7 +121,6 @@ def main():
 
     print(f"{total_pending} entries still need Spotify links. Starting browser...")
 
-    # Index for fast lookup
     id_to_idx = {e["musicId"]: i for i, e in enumerate(data)}
 
     driver = make_driver(HEADLESS)
@@ -113,10 +137,8 @@ def main():
             link   = search_spotify(driver, title)
             status = link if link else "not found"
 
-            # Write result back into the main list
             data[id_to_idx[music_id]]["spotifyLink"] = link
 
-            # Save immediately — every single entry
             save(data)
 
             done += 1
